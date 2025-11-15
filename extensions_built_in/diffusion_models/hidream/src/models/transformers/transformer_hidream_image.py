@@ -26,7 +26,7 @@ class TextProjection(nn.Module):
     def forward(self, caption):
         hidden_states = self.linear(caption)
         return hidden_states
-    
+
 class BlockType:
     TransformerBlock = 1
     SingleTransformerBlock = 2
@@ -64,14 +64,14 @@ class HiDreamImageSingleTransformerBlock(nn.Module):
         self.norm3_i = nn.LayerNorm(dim, eps = 1e-06, elementwise_affine = False)
         if num_routed_experts > 0:
             self.ff_i = MOEFeedForwardSwiGLU(
-                dim = dim, 
+                dim = dim,
                 hidden_dim = 4 * dim,
                 num_routed_experts = num_routed_experts,
                 num_activated_experts = num_activated_experts,
             )
         else:
             self.ff_i = FeedForwardSwiGLU(dim = dim, hidden_dim = 4 * dim)
-    
+
     def forward(
         self,
         image_tokens: torch.FloatTensor,
@@ -84,7 +84,7 @@ class HiDreamImageSingleTransformerBlock(nn.Module):
         wtype = image_tokens.dtype
         shift_msa_i, scale_msa_i, gate_msa_i, shift_mlp_i, scale_mlp_i, gate_mlp_i = \
             self.adaLN_modulation(adaln_input)[:,None].chunk(6, dim=-1)
-        
+
         # 1. MM-Attention
         norm_image_tokens = self.norm1_i(image_tokens).to(dtype=wtype)
         norm_image_tokens = norm_image_tokens * (1 + scale_msa_i) + shift_msa_i
@@ -94,7 +94,7 @@ class HiDreamImageSingleTransformerBlock(nn.Module):
             rope = rope,
         )
         image_tokens = gate_msa_i * attn_output_i + image_tokens
-        
+
         # 2. Feed-forward
         norm_image_tokens = self.norm3_i(image_tokens).to(dtype=wtype)
         norm_image_tokens = norm_image_tokens * (1 + scale_mlp_i) + shift_mlp_i
@@ -136,7 +136,7 @@ class HiDreamImageTransformerBlock(nn.Module):
         self.norm3_i = nn.LayerNorm(dim, eps = 1e-06, elementwise_affine = False)
         if num_routed_experts > 0:
             self.ff_i = MOEFeedForwardSwiGLU(
-                dim = dim, 
+                dim = dim,
                 hidden_dim = 4 * dim,
                 num_routed_experts = num_routed_experts,
                 num_activated_experts = num_activated_experts,
@@ -145,7 +145,7 @@ class HiDreamImageTransformerBlock(nn.Module):
             self.ff_i = FeedForwardSwiGLU(dim = dim, hidden_dim = 4 * dim)
         self.norm3_t = nn.LayerNorm(dim, eps = 1e-06, elementwise_affine = False)
         self.ff_t = FeedForwardSwiGLU(dim = dim, hidden_dim = 4 * dim)
-    
+
     def forward(
         self,
         image_tokens: torch.FloatTensor,
@@ -158,7 +158,7 @@ class HiDreamImageTransformerBlock(nn.Module):
         shift_msa_i, scale_msa_i, gate_msa_i, shift_mlp_i, scale_mlp_i, gate_mlp_i, \
         shift_msa_t, scale_msa_t, gate_msa_t, shift_mlp_t, scale_mlp_t, gate_mlp_t = \
             self.adaLN_modulation(adaln_input)[:,None].chunk(12, dim=-1)
-        
+
         # 1. MM-Attention
         norm_image_tokens = self.norm1_i(image_tokens).to(dtype=wtype)
         norm_image_tokens = norm_image_tokens * (1 + scale_msa_i) + shift_msa_i
@@ -174,7 +174,7 @@ class HiDreamImageTransformerBlock(nn.Module):
 
         image_tokens = gate_msa_i * attn_output_i + image_tokens
         text_tokens = gate_msa_t * attn_output_t + text_tokens
-        
+
         # 2. Feed-forward
         norm_image_tokens = self.norm3_i(image_tokens).to(dtype=wtype)
         norm_image_tokens = norm_image_tokens * (1 + scale_mlp_i) + shift_mlp_i
@@ -186,7 +186,7 @@ class HiDreamImageTransformerBlock(nn.Module):
         image_tokens = ff_output_i + image_tokens
         text_tokens = ff_output_t + text_tokens
         return image_tokens, text_tokens
-    
+
 @maybe_allow_in_graph
 class HiDreamImageBlock(nn.Module):
     def __init__(
@@ -210,7 +210,7 @@ class HiDreamImageBlock(nn.Module):
             num_routed_experts,
             num_activated_experts
         )
-    
+
     def forward(
         self,
         image_tokens: torch.FloatTensor,
@@ -249,7 +249,7 @@ class HiDreamImageTransformer2DModel(
         num_activated_experts: int = 2,
         axes_dims_rope: Tuple[int, int] = (32, 32),
         max_resolution: Tuple[int, int] = (128, 128),
-        llama_layers: List[int] = None, 
+        llama_layers: List[int] = None,
     ):
         super().__init__()
         self.out_channels = out_channels or in_channels
@@ -421,9 +421,9 @@ class HiDreamImageTransformer2DModel(
             encoder_hidden_states.append(T5_encoder_hidden_states)
 
         txt_ids = torch.zeros(
-            batch_size, 
-            encoder_hidden_states[-1].shape[1] + encoder_hidden_states[-2].shape[1] + encoder_hidden_states[0].shape[1], 
-            3, 
+            batch_size,
+            encoder_hidden_states[-1].shape[1] + encoder_hidden_states[-2].shape[1] + encoder_hidden_states[0].shape[1],
+            3,
             device=img_ids.device, dtype=img_ids.dtype
         )
         ids = torch.cat((img_ids, txt_ids), dim=1)
@@ -489,7 +489,7 @@ class HiDreamImageTransformer2DModel(
                 )
             hidden_states = hidden_states[:, :hidden_states_seq_len]
             block_id += 1
-        
+
         hidden_states = hidden_states[:, :image_tokens_seq_len, ...]
         output = self.final_layer(hidden_states, adaln_input)
         output = self.unpatchify(output, img_sizes, self.training)
@@ -503,4 +503,4 @@ class HiDreamImageTransformer2DModel(
         if not return_dict:
             return (output, image_tokens_masks)
         return Transformer2DModelOutput(sample=output, mask=image_tokens_masks)
-        
+

@@ -69,11 +69,11 @@ class AggressiveWanI2VUnloadPipeline(WanImageToVideoPipeline):
             boundary_ratio=boundary_ratio,
         )
         self._exec_device = device
-        
+
     @property
     def _execution_device(self):
         return self._exec_device
-    
+
     @torch.no_grad()
     def __call__(
         self,
@@ -101,13 +101,13 @@ class AggressiveWanI2VUnloadPipeline(WanImageToVideoPipeline):
     ):
         if isinstance(callback_on_step_end, (PipelineCallback, MultiPipelineCallbacks)):
             callback_on_step_end_tensor_inputs = callback_on_step_end.tensor_inputs
-            
+
         # unload vae and transformer
         # device = self.transformer.device
         device = self._exec_device
-        
+
         self.text_encoder.to(device)
-        
+
         self.vae.to('cpu')
         self.image_encoder.to('cpu')
         flush()
@@ -149,7 +149,7 @@ class AggressiveWanI2VUnloadPipeline(WanImageToVideoPipeline):
             max_sequence_length=max_sequence_length,
             device=device,
         )
-        
+
         # unload text encoder
         self.text_encoder.to("cpu")
         self.transformer.to(device)
@@ -275,7 +275,7 @@ class AggressiveWanI2VUnloadPipeline(WanImageToVideoPipeline):
         image = {k: v.to(self.image_encoder.device, dtype=self.image_encoder.dtype) for k, v in image.items()}
         image_embeds = self.image_encoder(**image, output_hidden_states=True)
         return image_embeds.hidden_states[-2]
-    
+
 
 
 
@@ -311,7 +311,7 @@ class Wan21I2V(Wan21):
         dtype = self.torch_dtype
         try:
             self.image_processor = CLIPImageProcessor.from_pretrained(
-                self.model_config.extras_name_or_path  , 
+                self.model_config.extras_name_or_path  ,
                 subfolder="image_processor"
             )
             self.image_encoder = CLIPVisionModel.from_pretrained(
@@ -322,7 +322,7 @@ class Wan21I2V(Wan21):
         except Exception as e:
             # load from name_or_path
             self.image_processor = CLIPImageProcessor.from_pretrained(
-                self.model_config.name_or_path_original, 
+                self.model_config.name_or_path_original,
                 subfolder="image_processor"
             )
             self.image_encoder = CLIPVisionModel.from_pretrained(
@@ -333,15 +333,15 @@ class Wan21I2V(Wan21):
         self.image_encoder.to(self.device_torch, dtype=dtype)
         self.image_encoder.eval()
         self.image_encoder.requires_grad_(False)
-        
+
         if self.model_config.low_vram:
             # unload image encoder
             self.image_encoder.to("cpu")
-        
+
         # rebuild the pipeline
         self.pipeline = self.get_generation_pipeline()
         flush()
-    
+
     def generate_images(
             self,
             image_configs,
@@ -360,13 +360,13 @@ class Wan21I2V(Wan21):
             sampler=sampler,
             pipeline=pipeline,
         )
-    
+
     def set_device_state_preset(self, *args, **kwargs):
         # set the device state to cpu for the image encoder
         if self.model_config.low_vram:
             return
         super().set_device_state_preset(*args, **kwargs)
-        
+
 
     def get_generation_pipeline(self):
         scheduler = UniPCMultistepScheduler(**scheduler_configUniPC)
@@ -408,23 +408,23 @@ class Wan21I2V(Wan21):
         # reactivate progress bar since this is slooooow
         pipeline.set_progress_bar_config(disable=False)
         # pipeline = pipeline.to(self.device_torch)
-        
-        
+
+
         if gen_config.ctrl_img is None:
             raise ValueError("I2V samples must have a control image")
-        
+
         control_img = Image.open(gen_config.ctrl_img).convert("RGB")
-        
+
         height = gen_config.height
         width = gen_config.width
-        
+
         # make sure they are divisible by 16
         height = height // 16 * 16
         width = width // 16 * 16
-        
+
         # resize the control image
         control_img = control_img.resize((width, height), Image.LANCZOS)
-                
+
         output = pipeline(
             image=control_img,
             prompt_embeds=conditional_embeds.text_embeds.to(
@@ -457,20 +457,20 @@ class Wan21I2V(Wan21):
         # tensor shape: (bs, ch, height, width) with values in range [-1, 1]
         # Convert from [-1, 1] to [0, 1] range
         tensor = (image_n1p1 + 1) / 2
-        
+
         # Resize to 224x224 (using bilinear interpolation, which is resample=3 in PIL)
         if tensor.shape[2] != 224 or tensor.shape[3] != 224:
             tensor = F.interpolate(tensor, size=(224, 224), mode='bilinear', align_corners=False)
-            
+
         tensors_0_1 = tensor.clamp(0, 1)  # Ensure values are in [0, 1] range
-        
+
         mean = torch.tensor(self.image_processor.image_mean).to(
             tensors_0_1.device, dtype=tensors_0_1.dtype
         ).view([1, 3, 1, 1]).detach()
         std = torch.tensor(self.image_processor.image_std).to(
             tensors_0_1.device, dtype=tensors_0_1.dtype
         ).view([1, 3, 1, 1]).detach()
-        
+
         # tensors_0_1 = torch.clip((255. * tensors_0_1), 0, 255).round() / 255.0
         clip_image = (tensors_0_1 - mean) / std
 
@@ -494,7 +494,7 @@ class Wan21I2V(Wan21):
                 first_frames = frames[:, 0]
             else:
                 raise ValueError(f"Unknown frame shape {frames.shape}")
-            
+
             # first_frames shape is (bs, channels, height, width), -1 to 1
             preprocessed_frames = self.preprocess_clip_image(first_frames)
             preprocessed_frames = preprocessed_frames.to(self.device_torch, dtype=self.torch_dtype)
@@ -503,14 +503,14 @@ class Wan21I2V(Wan21):
             image_embeds_full = self.image_encoder(preprocessed_frames, output_hidden_states=True)
             image_embeds = image_embeds_full.hidden_states[-2]
             image_embeds = image_embeds.to(self.device_torch, dtype=self.torch_dtype)
-            
+
             # Add conditioning using the standalone function
             conditioned_latent = add_first_frame_conditioning(
                 latent_model_input=latent_model_input,
                 first_frame=first_frames,
                 vae=self.vae
             )
-        
+
         noise_pred = self.model(
             hidden_states=conditioned_latent,
             timestep=timestep,

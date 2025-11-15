@@ -131,7 +131,7 @@ class Adafactor(torch.optim.Optimizer):
             "warmup_init": warmup_init,
         }
         super().__init__(params, defaults)
-        
+
         self.base_lrs: List[float] = [
             lr for group in self.param_groups
         ]
@@ -147,7 +147,7 @@ class Adafactor(torch.optim.Optimizer):
                         param.register_post_accumulate_grad_hook(
                             stochastic_grad_accummulation
                         )
-    
+
         self.do_paramiter_swapping = do_paramiter_swapping
         self.paramiter_swapping_factor = paramiter_swapping_factor
         self._total_paramiter_size = 0
@@ -157,18 +157,18 @@ class Adafactor(torch.optim.Optimizer):
                 self._total_paramiter_size += torch.numel(param)
         # pretty print total paramiters with comma seperation
         print(f"Total training paramiters: {self._total_paramiter_size:,}")
-        
+
         # needs to be enabled to count paramiters
         if self.do_paramiter_swapping:
             self.enable_paramiter_swapping(self.paramiter_swapping_factor)
-        
-    
+
+
     def enable_paramiter_swapping(self, paramiter_swapping_factor=0.1):
         self.do_paramiter_swapping = True
         self.paramiter_swapping_factor = paramiter_swapping_factor
         # call it an initial time
         self.swap_paramiters()
-                    
+
     def swap_paramiters(self):
         all_params = []
         # deactivate all paramiters
@@ -180,7 +180,7 @@ class Adafactor(torch.optim.Optimizer):
                 all_params.append(param)
         # shuffle all paramiters
         random.shuffle(all_params)
-        
+
         # keep activating paramiters until we are going to go over the target paramiters
         target_paramiters = int(self._total_paramiter_size * self.paramiter_swapping_factor)
         total_paramiters = 0
@@ -268,7 +268,7 @@ class Adafactor(torch.optim.Optimizer):
                 if grad.is_sparse:
                     raise RuntimeError(
                         "Adafactor does not support sparse gradients.")
-                
+
                 # if p has atts _scale then it is quantized. We need to divide the grad by the scale
                 # if hasattr(p, "_scale"):
                 #     grad = grad / p._scale
@@ -306,7 +306,7 @@ class Adafactor(torch.optim.Optimizer):
                         state["exp_avg_sq"] = state["exp_avg_sq"].to(grad)
 
                 p_data_fp32 = p
-                
+
                 if isinstance(p_data_fp32, QBytesTensor):
                     p_data_fp32 = p_data_fp32.dequantize()
                 if p.dtype != torch.float32:

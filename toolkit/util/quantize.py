@@ -167,10 +167,10 @@ def quantize_model(
 
         # build the lora config based on the lora weights
         lora_state_dict = load_file(load_lora_path)
-        
+
         if hasattr(base_model, "convert_lora_weights_before_load"):
             lora_state_dict = base_model.convert_lora_weights_before_load(lora_state_dict)
-        
+
         network_config = {
             "type": "lora",
             "network_kwargs": {"only_if_contains": []},
@@ -183,7 +183,7 @@ def quantize_model(
             "lokr" in key for key in lora_state_dict.keys()
         ):
             network_config["type"] = "lokr"
-        
+
         network_kwargs = {}
 
         # find firse loraA weight
@@ -224,7 +224,7 @@ def quantize_model(
                     if contains_key not in only_if_contains:
                         only_if_contains.append(contains_key)
             network_kwargs["only_if_contains"] = only_if_contains
-        
+
         if hasattr(base_model, 'target_lora_modules'):
             network_kwargs['target_lin_modules'] = base_model.target_lora_modules
 

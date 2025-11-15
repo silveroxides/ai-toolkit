@@ -239,7 +239,7 @@ class QwenImageEditModel(QwenImageModel):
 
         img_h2, img_w2 = height // 2, width // 2
         control_img_h2, control_img_w2 = control_height // 2, control_width // 2
-        
+
         img_shapes = [[(1, img_h2, img_w2), (1, control_img_h2, control_img_w2)]] * batch_size
 
         latents = latent_model_input

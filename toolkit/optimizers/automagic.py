@@ -241,7 +241,7 @@ class Automagic(torch.optim.Optimizer):
                 # Ensure state is properly initialized
                 if 'last_polarity' not in state or 'lr_mask' not in state:
                     self.initialize_state(p)
-                
+
                 # Get signs of current last update and updates
                 last_polarity = state['last_polarity']
                 current_polarity = (update > 0).to(torch.bool)
@@ -285,7 +285,7 @@ class Automagic(torch.optim.Optimizer):
                     copy_stochastic(p, p_data_fp32)
 
         return loss
-    
+
     def initialize_state(self, p):
         state = self.state[p]
         state["step"] = 0
@@ -300,7 +300,7 @@ class Automagic(torch.optim.Optimizer):
         if 'last_polarity' not in state:
             state['last_polarity'] = torch.zeros(
                 p.shape, dtype=torch.bool, device=p.device)
-        
+
         factored = len(p.shape) >= 2
         if factored:
             state["exp_avg_sq_row"] = torch.zeros(
@@ -311,7 +311,7 @@ class Automagic(torch.optim.Optimizer):
             state["exp_avg_sq"] = torch.zeros_like(p)
 
         state["RMS"] = 0
-    
+
     # override the state_dict to save the lr_mask
     def state_dict(self, *args, **kwargs):
         orig_state_dict = super().state_dict(*args, **kwargs)
@@ -319,21 +319,21 @@ class Automagic(torch.optim.Optimizer):
         new_sace_state = {}
         for p, state in orig_state_dict['state'].items():
             save_state = {k: v for k, v in state.items() if k != 'lr_mask'}
-            
+
             # Check if lr_mask exists in the state before trying to access it
             if 'lr_mask' in state:
                 save_state['lr_mask'] = state['lr_mask'].state_dict()
-            
+
             new_sace_state[p] = save_state
-            
+
         orig_state_dict['state'] = new_sace_state
-        
+
         return orig_state_dict
-    
+
     def load_state_dict(self, state_dict, strict=True):
         # Validate that the state_dict is from an Automagic optimizer
         is_valid_automagic_state = False
-        
+
         # Check if state_dict has the expected structure
         if 'state' in state_dict and isinstance(state_dict['state'], dict):
             # Check if at least one state entry has an lr_mask, which is specific to Automagic
@@ -341,67 +341,67 @@ class Automagic(torch.optim.Optimizer):
                 if isinstance(param_state, dict) and 'lr_mask' in param_state:
                     is_valid_automagic_state = True
                     break
-        
+
         if not is_valid_automagic_state:
             return
-        
+
         # First, call the parent class's load_state_dict to load the basic optimizer state
         # We'll handle the lr_mask separately
         state_dict_copy = {
             'state': {},
             'param_groups': state_dict['param_groups']
         }
-        
+
         # Copy all state entries except lr_mask
         for param_id, param_state in state_dict['state'].items():
             state_dict_copy['state'][param_id] = {
                 k: v for k, v in param_state.items() if k != 'lr_mask'
             }
-        
+
         # Call parent class load_state_dict with the modified state dict
         super().load_state_dict(state_dict_copy)
-        
+
         # Now handle the lr_mask separately
         # We need to map the saved parameters to the current parameters
         # This is tricky because the parameter IDs might be different
-        
+
         # Get all current parameters that require gradients
         current_params = []
         for group in self.param_groups:
             for p in group['params']:
                 if p.requires_grad:
                     current_params.append(p)
-        
+
         # If the number of parameters doesn't match, we can't reliably map them
         if len(current_params) != len(state_dict['param_groups'][0]['params']):
             print(f"WARNING: Number of parameters doesn't match between saved state ({len(state_dict['param_groups'][0]['params'])}) "
                   f"and current model ({len(current_params)}). Learning rate masks may not be correctly loaded.")
-        
+
         # Map parameters by their position in the param_groups
         # This assumes the order of parameters is preserved between saving and loading
         saved_param_ids = list(state_dict['state'].keys())
-        
+
         for i, current_param in enumerate(current_params):
             if i >= len(saved_param_ids):
                 break
-                
+
             saved_param_id = saved_param_ids[i]
             saved_state = state_dict['state'][saved_param_id]
-            
+
             # Skip if this saved state doesn't have an lr_mask
             if 'lr_mask' not in saved_state:
                 continue
-                
+
             # Initialize the state for this parameter if it doesn't exist
             if current_param not in self.state:
                 self.initialize_state(current_param)
-                
+
             # Get the current state for this parameter
             current_state = self.state[current_param]
-            
+
             # Load the lr_mask from the saved state
             saved_lr_mask = saved_state['lr_mask']
-            
+
             # Reconstruct the Auto8bitTensor from its state dict
             try:
                 # Make sure the shapes match

@@ -67,7 +67,7 @@ class LLMAdapter(torch.nn.Module):
 
         self.system_prompt = ""
         # self.system_prompt = "You are an assistant designed to generate superior images with the superior degree of image-text alignment based on textual prompts or user prompts. <Prompt Start> "
-        
+
         # determine length of system prompt
         sys_prompt_tokenized = tokenizer(
             [self.system_prompt],
@@ -76,13 +76,13 @@ class LLMAdapter(torch.nn.Module):
         )
 
         sys_prompt_tokenized_ids = sys_prompt_tokenized.input_ids[0]
-        
+
         self.system_prompt_length = sys_prompt_tokenized_ids.shape[0]
-        
+
         print(f"System prompt length: {self.system_prompt_length}")
 
         self.hidden_size = llm.config.hidden_size
-        
+
         blocks = []
 
         if sd.is_flux:
@@ -96,7 +96,7 @@ class LLMAdapter(torch.nn.Module):
             sd.unet.context_embedder._context_embedder_ref = weakref.ref(self.context_embedder)
             # add a is active property to the context embedder
             sd.unet.context_embedder._adapter_ref = self.adapter_ref
-            
+
             for idx in range(self.num_cloned_blocks):
                 block = FluxTransformerBlock(
                     dim=sd.unet.inner_dim,
@@ -115,7 +115,7 @@ class LLMAdapter(torch.nn.Module):
                     new_block_forward, orig_block)
                 orig_block._new_block_ref = weakref.ref(block)
                 orig_block._adapter_ref = self.adapter_ref
-            
+
         elif sd.is_lumina2:
             self.context_embedder = nn.Linear(
                 self.hidden_size, sd.unet.hidden_size)
@@ -123,7 +123,7 @@ class LLMAdapter(torch.nn.Module):
         else:
             raise ValueError(
                 "llm adapter currently only supports flux or lumina2")
-        
+
         self.blocks = nn.ModuleList(blocks)
 
     def _get_prompt_embeds(
@@ -145,14 +145,14 @@ class LLMAdapter(torch.nn.Module):
 
         text_input_ids = text_inputs.input_ids.to(device)
         prompt_attention_mask = text_inputs.attention_mask.to(device)
-        
+
         # remove the system prompt from the input and attention mask
-        
+
         prompt_embeds = text_encoder(
             text_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True
         )
         prompt_embeds = prompt_embeds.hidden_states[-1]
-        
+
         prompt_embeds = prompt_embeds[:, self.system_prompt_length:]
         prompt_attention_mask = prompt_attention_mask[:, self.system_prompt_length:]
 

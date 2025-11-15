@@ -1,5 +1,5 @@
 import os
-from huggingface_hub import whoami    
+from huggingface_hub import whoami
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 import sys
 
@@ -40,14 +40,14 @@ def load_captioning(uploaded_files, concept_sentence):
     for i in range(1, MAX_IMAGES + 1):
         # Determine if the current row and image should be visible
         visible = i <= len(uploaded_images)
-        
+
         # Update visibility of the captioning row
         updates.append(gr.update(visible=visible))
 
         # Update for image component - display image if available, otherwise hide
         image_value = uploaded_images[i - 1] if visible else None
         updates.append(gr.update(value=image_value, visible=visible))
-        
+
         corresponding_caption = False
         if(image_value):
             base_name = os.path.splitext(os.path.basename(image_value))[0]
@@ -57,7 +57,7 @@ def load_captioning(uploaded_files, concept_sentence):
                 print("entrou")
                 with open(txt_files_dict[base_name], 'r') as file:
                     corresponding_caption = file.read()
-                    
+
         # Update value of captioning area
         text_value = corresponding_caption if visible and corresponding_caption else "[trigger]" if visible and concept_sentence else None
         updates.append(gr.update(value=text_value, visible=visible))
@@ -72,7 +72,7 @@ def load_captioning(uploaded_files, concept_sentence):
     return updates
 
 def hide_captioning():
-    return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False) 
+    return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
 
 def create_dataset(*inputs):
     print("Creating dataset")
@@ -167,7 +167,7 @@ def start_training(
     except:
         push_to_hub = False
         gr.Warning("Started training locally. Your LoRa will only be available locally because you didn't login with a `write` token to Hugging Face")
-            
+
     print("Started training")
     slugged_lora_name = slugify(lora_name)
 
@@ -194,7 +194,7 @@ def start_training(
         config["config"]["process"][0]["save"]["hf_private"] = True
     if concept_sentence:
         config["config"]["process"][0]["trigger_word"] = concept_sentence
-    
+
     if sample_1 or sample_2 or sample_3:
         config["config"]["process"][0]["train"]["disable_sampling"] = False
         config["config"]["process"][0]["sample"]["sample_every"] = steps
@@ -216,7 +216,7 @@ def start_training(
         more_advanced_options_dict = yaml.safe_load(more_advanced_options)
         config["config"]["process"][0] = recursive_update(config["config"]["process"][0], more_advanced_options_dict)
         print(config)
-    
+
     # Save the updated config
     # generate a random name for the config
     random_config_name = str(uuid.uuid4())
@@ -224,7 +224,7 @@ def start_training(
     config_path = f"tmp/{random_config_name}-{slugged_lora_name}.yaml"
     with open(config_path, "w") as f:
         yaml.dump(config, f)
-    
+
     # run the job locally
     job = get_job(config_path)
     job.run()
@@ -265,7 +265,7 @@ train:
     use_ema: true
   gradient_accumulation_steps: 1
   gradient_checkpointing: true
-  noise_scheduler: flowmatch 
+  noise_scheduler: flowmatch
   optimizer: adamw8bit #options: prodigy, dadaptation, adamw, adamw8bit, lion, lion8bit
   train_text_encoder: false #probably doesn't work for flux
   train_unet: true
@@ -360,7 +360,7 @@ with gr.Blocks(theme=theme, css=css) as demo:
             sample_1 = gr.Textbox(label="Test prompt 1")
             sample_2 = gr.Textbox(label="Test prompt 2")
             sample_3 = gr.Textbox(label="Test prompt 3")
-        
+
         output_components.append(sample)
         output_components.append(sample_1)
         output_components.append(sample_2)
@@ -376,7 +376,7 @@ with gr.Blocks(theme=theme, css=css) as demo:
         inputs=[images, concept_sentence],
         outputs=output_components
     )
-    
+
     images.delete(
         load_captioning,
         inputs=[images, concept_sentence],
@@ -387,7 +387,7 @@ with gr.Blocks(theme=theme, css=css) as demo:
         hide_captioning,
         outputs=[captioning_area, sample, start]
     )
-    
+
     start.click(fn=create_dataset, inputs=[images] + caption_list, outputs=dataset_folder).then(
         fn=start_training,
         inputs=[

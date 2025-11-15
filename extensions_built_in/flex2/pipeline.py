@@ -23,7 +23,7 @@ class Flex2Pipeline(FluxControlPipeline):
         transformer,
     ):
         super().__init__(scheduler, vae, text_encoder, tokenizer, text_encoder_2, tokenizer_2, transformer)
-    
+
     @torch.no_grad()
     def __call__(
         self,
@@ -178,7 +178,7 @@ class Flex2Pipeline(FluxControlPipeline):
         # 4. Prepare latent variables
         # num_channels_latents = self.transformer.config.in_channels // 8
         num_channels_latents = 128 // 8
-        
+
         # pull mask off control image if there is one it is a pil image
         mask = None
         if control_image is not None and control_image.mode == "RGBA":
@@ -189,7 +189,7 @@ class Flex2Pipeline(FluxControlPipeline):
             # control image ideally would be a full image here
             control_img_array = control_img_array[:, :, :3]
             control_image = Image.fromarray(control_img_array.astype(np.uint8))
-        
+
         if control_image is not None:
 
             control_image = self.prepare_image(
@@ -206,7 +206,7 @@ class Flex2Pipeline(FluxControlPipeline):
                 num_control_channels = num_channels_latents
                 control_image = self.vae.encode(control_image).latent_dist.sample(generator=generator)
                 control_image = (control_image - self.vae.config.shift_factor) * self.vae.config.scaling_factor
-                
+
                 if mask is not None:
                     transform = transforms.Compose([
                         transforms.ToTensor(),
@@ -275,7 +275,7 @@ class Flex2Pipeline(FluxControlPipeline):
             for i, t in enumerate(timesteps):
                 if self.interrupt:
                     continue
-                
+
                 # make a blank control latent
                 control_image_list = [
                     # impainting
@@ -284,7 +284,7 @@ class Flex2Pipeline(FluxControlPipeline):
                     torch.zeros_like(latents),
                 ]
                 if control_image is not None:
-                
+
                     control_image_list[control_image_idx] = control_image
 
                 latent_model_input = torch.cat([latents] + control_image_list, dim=2)
@@ -345,4 +345,3 @@ class Flex2Pipeline(FluxControlPipeline):
 
         return FluxPipelineOutput(images=image)
 
-    

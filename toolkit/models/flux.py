@@ -42,13 +42,13 @@ def new_device_to(self: FluxTransformer2DModel, *args, **kwargs):
     # Store original device if provided in args or kwargs
     device_in_kwargs = 'device' in kwargs
     device_in_args = any(isinstance(arg, (str, torch.device)) for arg in args)
-    
+
     device = None
     # Remove device from kwargs if present
     if device_in_kwargs:
         device = kwargs['device']
         del kwargs['device']
-    
+
     # Only filter args if we detected a device argument
     if device_in_args:
         args = list(args)
@@ -56,7 +56,7 @@ def new_device_to(self: FluxTransformer2DModel, *args, **kwargs):
             if isinstance(arg, (str, torch.device)):
                 device = arg
                 del args[idx]
-    
+
     self.pos_embed = self.pos_embed.to(device, *args, **kwargs)
     self.time_text_embed = self.time_text_embed.to(device, *args, **kwargs)
     self.context_embedder = self.context_embedder.to(device, *args, **kwargs)
@@ -65,15 +65,15 @@ def new_device_to(self: FluxTransformer2DModel, *args, **kwargs):
         block.to(block._split_device, *args, **kwargs)
     for block in self.single_transformer_blocks:
         block.to(block._split_device, *args, **kwargs)
-    
+
     self.norm_out = self.norm_out.to(device, *args, **kwargs)
     self.proj_out = self.proj_out.to(device, *args, **kwargs)
-    
-    
-    
+
+
+
     return self
 
-    
+
 
 
 def split_gpu_double_block_forward(
@@ -111,7 +111,7 @@ def split_gpu_single_block_forward(
     if image_rotary_emb is not None and image_rotary_emb[0].device != self._split_device:
         # is a tuple of tensors
         image_rotary_emb = tuple([t.to(self._split_device) for t in image_rotary_emb])
-    
+
     hidden_state_out = self._pre_gpu_split_forward(hidden_states, temb, image_rotary_emb, joint_attention_kwargs, **kwargs)
     if hasattr(self, "_split_output_device"):
         return hidden_state_out.to(self._split_output_device)
@@ -126,16 +126,16 @@ def add_model_gpu_splitter_to_flux(
     other_module_param_count_scale: Optional[float] = 0.3
 ):
     gpu_id_list = [i for i in range(torch.cuda.device_count())]
-    
+
     # if len(gpu_id_list) > 2:
     #     raise ValueError("Cannot split to more than 2 GPUs currently.")
     other_module_params *= other_module_param_count_scale
-    
-    # since we are not tuning the 
+
+    # since we are not tuning the
     total_params = sum(p.numel() for p in transformer.parameters()) + other_module_params
-    
+
     params_per_gpu = total_params / len(gpu_id_list)
-    
+
     current_gpu_idx = 0
     # text encoders, vae, and some non block layers will all be on gpu 0
     current_gpu_params = other_module_params
@@ -154,7 +154,7 @@ def add_model_gpu_splitter_to_flux(
             current_gpu_params = 0
             if current_gpu_idx >= len(gpu_id_list):
                 current_gpu_idx = gpu_id_list[-1]
-        
+
     for single_block in transformer.single_transformer_blocks:
         device = torch.device(f"cuda:{current_gpu_idx}")
         single_block._pre_gpu_split_forward = single_block.forward
@@ -169,10 +169,10 @@ def add_model_gpu_splitter_to_flux(
             current_gpu_params = 0
             if current_gpu_idx >= len(gpu_id_list):
                 current_gpu_idx = gpu_id_list[-1]
-    
+
     # add output device to last layer
     transformer.single_transformer_blocks[-1]._split_output_device = torch.device("cuda:0")
-    
+
     transformer._pre_gpu_split_to = transformer.to
     transformer.to = partial(new_device_to, transformer)
 

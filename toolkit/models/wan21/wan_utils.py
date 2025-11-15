@@ -29,15 +29,15 @@ def add_first_frame_conditioning(
     # For n original frames, there are (n-1)//4 + 1 latent frames
     # So to get n: n = (num_latent_frames-1)*4 + 1
     num_frames = (num_latent_frames - 1) * 4 + 1
-    
+
     if len(first_frame.shape) == 3:
         # we have a single image
         first_frame = first_frame.unsqueeze(0)
-    
+
     # if it doesnt match the batch size, we need to expand it
     if first_frame.shape[0] != latent_model_input.shape[0]:
         first_frame = first_frame.expand(latent_model_input.shape[0], -1, -1, -1)
-        
+
     # resize first frame to match the latent model input
     vae_scale_factor = vae.config.scale_factor_spatial
     first_frame = F.interpolate(
@@ -65,7 +65,7 @@ def add_first_frame_conditioning(
         video_condition.to(device, dtype)
     ).latent_dist.sample()
     latent_condition = latent_condition.to(device, dtype)
-    
+
     latents_mean = (
         torch.tensor(vae.config.latents_mean)
         .view(1, vae.config.z_dim, 1, 1, 1)
@@ -75,7 +75,7 @@ def add_first_frame_conditioning(
         device, dtype
     )
     latent_condition = (latent_condition - latents_mean) * latents_std
-    
+
 
     # Create mask: 1 for conditioning frames, 0 for frames to generate
     batch_size = first_frame.shape[0]
@@ -162,7 +162,7 @@ def add_first_frame_conditioning_v22(
     # Mask: 0 where conditioned, 1 otherwise
     mask = torch.ones(bs, 1, T, H, W, device=device, dtype=dtype)
     mask[:, :, :encoded.shape[2]] = 0.0
-    
+
     if last_frame is not None:
         # If last_frame is provided, encode it similarly
         last_frame_up = F.interpolate(last_frame, size=(target_h, target_w), mode="bilinear", align_corners=False)

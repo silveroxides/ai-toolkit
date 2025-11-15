@@ -67,9 +67,9 @@ class MemoryManager:
 
     @classmethod
     def attach(
-        cls, 
-        module: torch.nn.Module, 
-        device: torch.device, 
+        cls,
+        module: torch.nn.Module,
+        device: torch.device,
         offload_percent: float = 1.0,
         ignore_modules: list[torch.nn.Module] = []
     ):
@@ -86,7 +86,7 @@ class MemoryManager:
         # add ignore modules to unmanaged list
         for im in ignore_modules:
             module._memory_manager.unmanaged_modules.append(im)
-            
+
         # count ignore modules as processed
         modules_processed = [x for x in ignore_modules]
         # attach to all modules
@@ -113,7 +113,7 @@ class MemoryManager:
                             ara = child_module.ara_lora_ref()
                             if ara not in modules_processed:
                                 MemoryManager.attach(
-                                    ara, 
+                                    ara,
                                     device,
                                 )
                     modules_processed.append(child_module)
@@ -138,7 +138,7 @@ class MemoryManager:
                             ara = child_module.ara_lora_ref()
                             if ara not in modules_processed:
                                 MemoryManager.attach(
-                                    ara, 
+                                    ara,
                                     device,
                                 )
                             modules_processed.append(ara)

@@ -169,12 +169,12 @@ class Chroma(nn.Module):
             persistent=False,
         )
         self.approximator_in_dim = params.approximator_in_dim
-    
+
     @property
     def device(self):
         # Get the device of the module (assumes all parameters are on the same device)
         return next(self.parameters()).device
-    
+
     def enable_gradient_checkpointing(self, enable: bool = True):
         self.gradient_checkpointing = enable
 

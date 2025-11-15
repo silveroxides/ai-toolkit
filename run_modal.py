@@ -35,24 +35,24 @@ image = (
     .apt_install("libgl1", "libglib2.0-0")
     .pip_install(
         "python-dotenv",
-        "torch", 
-        "diffusers[torch]", 
-        "transformers", 
-        "ftfy", 
-        "torchvision", 
-        "oyaml", 
-        "opencv-python", 
+        "torch",
+        "diffusers[torch]",
+        "transformers",
+        "ftfy",
+        "torchvision",
+        "oyaml",
+        "opencv-python",
         "albumentations",
         "safetensors",
         "lycoris-lora==1.8.3",
         "flatten_json",
         "pyyaml",
-        "tensorboard", 
-        "kornia", 
-        "invisible-watermark", 
-        "einops", 
-        "accelerate", 
-        "toml", 
+        "tensorboard",
+        "kornia",
+        "invisible-watermark",
+        "einops",
+        "accelerate",
+        "toml",
         "pydantic",
         "omegaconf",
         "k-diffusion",
@@ -62,11 +62,11 @@ image = (
         "controlnet_aux==0.0.7",
         "bitsandbytes",
         "hf_transfer",
-        "lpips", 
-        "pytorch_fid", 
-        "optimum-quanto", 
-        "sentencepiece", 
-        "huggingface_hub", 
+        "lpips",
+        "pytorch_fid",
+        "optimum-quanto",
+        "sentencepiece",
+        "huggingface_hub",
         "peft"
     )
 )
@@ -120,17 +120,17 @@ def main(config_file_list_str: str, recover: bool = False, name: str = None):
     for config_file in config_file_list:
         try:
             job = get_job(config_file, name)
-            
+
             job.config['process'][0]['training_folder'] = MOUNT_DIR
             os.makedirs(MOUNT_DIR, exist_ok=True)
             print(f"Training outputs will be saved to: {MOUNT_DIR}")
-            
+
             # run the job
             job.run()
-            
+
             # commit the volume after training
             model_volume.commit()
-            
+
             job.cleanup()
             jobs_completed += 1
         except Exception as e:

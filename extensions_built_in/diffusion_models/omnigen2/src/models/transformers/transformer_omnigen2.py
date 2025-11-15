@@ -32,13 +32,13 @@ logger = logging.get_logger(__name__)
 class OmniGen2TransformerBlock(nn.Module):
     """
     Transformer block for OmniGen2 model.
-    
+
     This block implements a transformer layer with:
     - Multi-head attention with flash attention
     - Feed-forward network with SwiGLU activation
     - RMS normalization
     - Optional modulation for conditional generation
-    
+
     Args:
         dim: Dimension of the input and output tensors
         num_attention_heads: Number of attention heads
@@ -112,7 +112,7 @@ class OmniGen2TransformerBlock(nn.Module):
     def initialize_weights(self) -> None:
         """
         Initialize the weights of the transformer block.
-        
+
         Uses Xavier uniform initialization for linear layers and zero initialization for biases.
         """
         nn.init.xavier_uniform_(self.attn.to_q.weight)
@@ -123,7 +123,7 @@ class OmniGen2TransformerBlock(nn.Module):
         nn.init.xavier_uniform_(self.feed_forward.linear_1.weight)
         nn.init.xavier_uniform_(self.feed_forward.linear_2.weight)
         nn.init.xavier_uniform_(self.feed_forward.linear_3.weight)
-        
+
         if self.modulation:
             nn.init.zeros_(self.norm1.linear.weight)
             nn.init.zeros_(self.norm1.linear.bias)
@@ -151,7 +151,7 @@ class OmniGen2TransformerBlock(nn.Module):
         if self.modulation:
             if temb is None:
                 raise ValueError("temb must be provided when modulation is enabled")
-                
+
             norm_hidden_states, gate_msa, scale_mlp, gate_mlp = self.norm1(hidden_states, temb)
             attn_output = self.attn(
                 hidden_states=norm_hidden_states,
@@ -180,13 +180,13 @@ class OmniGen2TransformerBlock(nn.Module):
 class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, FromOriginalModelMixin):
     """
     OmniGen2 Transformer 2D Model.
-    
+
     A transformer-based diffusion model for image generation with:
     - Patch-based image processing
     - Rotary position embeddings
     - Multi-head attention
     - Conditional generation support
-    
+
     Args:
         patch_size: Size of image patches
         in_channels: Number of input channels
@@ -239,7 +239,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
                 f"hidden_size // num_attention_heads ({hidden_size // num_attention_heads}) "
                 f"must equal sum(axes_dim_rope) ({sum(axes_dim_rope)})"
             )
-        
+
         self.out_channels = out_channels or in_channels
 
         # Initialize embeddings
@@ -334,7 +334,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
             bias=True,
             out_dim=patch_size * patch_size * self.out_channels
         )
-        
+
         # Add learnable embeddings to distinguish different images
         self.image_index_embedding = nn.Parameter(torch.randn(5, hidden_size)) # support max 5 ref images
 
@@ -345,7 +345,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
     def initialize_weights(self) -> None:
         """
         Initialize the weights of the model.
-        
+
         Uses Xavier uniform initialization for linear layers.
         """
         nn.init.xavier_uniform_(self.x_embedder.weight)
@@ -358,7 +358,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
         nn.init.zeros_(self.norm_out.linear_1.bias)
         nn.init.zeros_(self.norm_out.linear_2.weight)
         nn.init.zeros_(self.norm_out.linear_2.bias)
-        
+
         nn.init.normal_(self.image_index_embedding, std=0.02)
 
     def img_patch_embed_and_refine(
@@ -375,10 +375,10 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
     ):
         batch_size = len(hidden_states)
         max_combined_img_len = max([img_len + sum(ref_img_len) for img_len, ref_img_len in zip(l_effective_img_len, l_effective_ref_img_len)])
-    
+
         hidden_states = self.x_embedder(hidden_states)
         ref_image_hidden_states = self.ref_image_patch_embedder(ref_image_hidden_states)
-        
+
         for i in range(batch_size):
             shift = 0
             for j, ref_img_len in enumerate(l_effective_ref_img_len[i]):
@@ -421,7 +421,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
                 ref_image_hidden_states[i, shift:shift + ref_img_len] = batch_ref_image_hidden_states[idx, :ref_img_len]
                 shift += ref_img_len
                 idx += 1
-            
+
         combined_img_hidden_states = hidden_states.new_zeros(batch_size, max_combined_img_len, self.config.hidden_size)
         for i, (ref_img_len, img_len) in enumerate(zip(l_effective_ref_img_len, l_effective_img_len)):
             combined_img_hidden_states[i, :sum(ref_img_len)] = ref_image_hidden_states[i, :sum(ref_img_len)]
@@ -467,10 +467,10 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
         for i in range(batch_size):
             img = hidden_states[i]
             C, H, W = img.size()
-            
+
             img = rearrange(img, 'c (h p1) (w p2) -> (h w) (p1 p2 c)', p1=p, p2=p)
             flat_hidden_states.append(img)
-        
+
         padded_ref_img_hidden_states = torch.zeros(batch_size, max_ref_img_len, flat_hidden_states[0].shape[-1], device=device, dtype=flat_hidden_states[0].dtype)
         padded_ref_img_mask = torch.zeros(batch_size, max_ref_img_len, dtype=torch.bool, device=device)
         for i in range(batch_size):
@@ -494,7 +494,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
             ref_img_sizes,
             img_sizes,
         )
-    
+
     def forward(
         self,
         hidden_states: Union[torch.Tensor, List[torch.Tensor]],
@@ -543,7 +543,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
             ref_img_sizes,
             img_sizes,
         ) = self.flat_and_pad_to_seq(hidden_states, ref_image_hidden_states)
-        
+
         (
             context_rotary_emb,
             ref_img_rotary_emb,
@@ -564,7 +564,7 @@ class OmniGen2Transformer2DModel(ModelMixin, ConfigMixin, PeftAdapterMixin, From
         # 2. Context refinement
         for layer in self.context_refiner:
             text_hidden_states = layer(text_hidden_states, text_attention_mask, context_rotary_emb)
-        
+
         combined_img_hidden_states = self.img_patch_embed_and_refine(
             hidden_states,
             ref_image_hidden_states,

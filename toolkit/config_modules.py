@@ -63,7 +63,7 @@ class SampleItem:
         self.ctrl_img_1: Optional[str] = kwargs.get('ctrl_img_1', self.ctrl_img)
         self.ctrl_img_2: Optional[str] = kwargs.get('ctrl_img_2', None)
         self.ctrl_img_3: Optional[str] = kwargs.get('ctrl_img_3', None)
-        
+
         self.network_multiplier: float = kwargs.get('network_multiplier', sample_config.network_multiplier)
         # convert to a number if it is a string
         if isinstance(self.network_multiplier, str):
@@ -72,7 +72,7 @@ class SampleItem:
             except:
                 print(f"Invalid network_multiplier {self.network_multiplier}, defaulting to 1.0")
                 self.network_multiplier = 1.0
-        
+
         # only for models that support it, (qwen image edit 2509 for now)
         self.do_cfg_norm: bool = kwargs.get('do_cfg_norm', False)
 
@@ -99,9 +99,9 @@ class SampleConfig:
         if self.num_frames > 1 and self.ext not in ['webp']:
             print("Changing sample extention to animated webp")
             self.ext = 'webp'
-        
+
         prompts: list[str] = kwargs.get('prompts', [])
-        
+
         self.samples: Optional[List[SampleItem]] = None
         # use the legacy prompts if it is passed that way to get samples object
         default_samples_kwargs = [
@@ -111,13 +111,13 @@ class SampleConfig:
         self.samples = [SampleItem(self, **item) for item in raw_samples]
         # only for models that support it, (qwen image edit 2509 for now)
         self.do_cfg_norm: bool = kwargs.get('do_cfg_norm', False)
-        
+
     @property
     def prompts(self):
         # for backwards compatibility as this is checked for length frequently
         return [sample.prompt for sample in self.samples if sample.prompt is not None]
-  
-                
+
+
 
 
 class LormModuleSettingsConfig:
@@ -229,10 +229,10 @@ class NetworkConfig:
             self.conv_alpha = 9999999999
         # -1 automatically finds the largest factor
         self.lokr_factor = kwargs.get('lokr_factor', -1)
-        
+
         # for multi stage models
         self.split_multistage_loras = kwargs.get('split_multistage_loras', True)
-        
+
         # ramtorch, doesn't work yet
         self.layer_offloading = kwargs.get('layer_offloading', False)
 
@@ -414,7 +414,7 @@ class TrainConfig:
         self.xformers = kwargs.get('xformers', False)
         self.sdp = kwargs.get('sdp', False)
         # see https://huggingface.co/docs/diffusers/main/optimization/attention_backends#available-backends for options
-        self.attention_backend: str = kwargs.get('attention_backend', 'native')  # native, flash, _flash_3_hub, _flash_3, 
+        self.attention_backend: str = kwargs.get('attention_backend', 'native')  # native, flash, _flash_3_hub, _flash_3,
         self.train_unet = kwargs.get('train_unet', True)
         self.train_text_encoder = kwargs.get('train_text_encoder', False)
         self.train_refiner = kwargs.get('train_refiner', True)
@@ -513,11 +513,11 @@ class TrainConfig:
         )
         # If the trigger word is in the prompt, we will use this class name to replace it eg. "sks woman" -> "woman"
         self.diff_output_preservation_class = kwargs.get('diff_output_preservation_class', '')
-        
+
         # blank prompt preservation will preserve the model's knowledge of a blank prompt
         self.blank_prompt_preservation = kwargs.get('blank_prompt_preservation', False)
         self.blank_prompt_preservation_multiplier = kwargs.get('blank_prompt_preservation_multiplier', 1.0)
-        
+
         # legacy
         if match_adapter_assist and self.match_adapter_chance == 0.0:
             self.match_adapter_chance = 1.0
@@ -557,7 +557,7 @@ class TrainConfig:
         self.do_prior_divergence = kwargs.get("do_prior_divergence", False)
 
         ema_config: Union[Dict, None] = kwargs.get('ema_config', None)
-        # if it is set explicitly to false, leave it false. 
+        # if it is set explicitly to false, leave it false.
         if ema_config is not None and ema_config.get('use_ema', False):
             ema_config['use_ema'] = True
             print(f"Using EMA")
@@ -596,11 +596,11 @@ class TrainConfig:
         # diffusion feature extractor
         self.latent_feature_extractor_path = kwargs.get('latent_feature_extractor_path', None)
         self.latent_feature_loss_weight = kwargs.get('latent_feature_loss_weight', 1.0)
-        
+
         # we use this in the code, but it really needs to be called latent_feature_extractor as that makes more sense with new architecture
         self.diffusion_feature_extractor_path = kwargs.get('diffusion_feature_extractor_path', self.latent_feature_extractor_path)
         self.diffusion_feature_extractor_weight = kwargs.get('diffusion_feature_extractor_weight', self.latent_feature_loss_weight)
-        
+
         # optimal noise pairing
         self.optimal_noise_pairing_samples = kwargs.get(
             "optimal_noise_pairing_samples", 1
@@ -609,7 +609,7 @@ class TrainConfig:
         # forces same noise for the same image at a given size.
         self.force_consistent_noise = kwargs.get('force_consistent_noise', False)
         self.blended_blur_noise = kwargs.get('blended_blur_noise', False)
-        
+
         # contrastive loss
         self.do_guidance_loss = kwargs.get('do_guidance_loss', False)
         self.guidance_loss_target: Union[int, List[int, int]] = kwargs.get('guidance_loss_target', 3.0)
@@ -731,7 +731,7 @@ class ModelConfig:
         self.te_name_or_path = kwargs.get("te_name_or_path", None)
 
         self.arch: ModelArch = kwargs.get("arch", None)
-        
+
         # auto memory management, only for some models
         self.auto_memory = kwargs.get("auto_memory", False)
         # auto memory is deprecated, use layer offloading instead
@@ -742,7 +742,7 @@ class ModelConfig:
             self.qtype = "float8"
         if self.layer_offloading and self.qtype_te == "qfloat8":
             self.qtype_te = "float8"
-        
+
         # 0 is off and 1.0 is 100% of the layers
         self.layer_offloading_transformer_percent = kwargs.get("layer_offloading_transformer_percent", 1.0)
         self.layer_offloading_text_encoder_percent = kwargs.get("layer_offloading_text_encoder_percent", 1.0)
@@ -751,17 +751,17 @@ class ModelConfig:
         # only setup for some models but will prevent having to download the te for
         # 20 different model variants
         self.extras_name_or_path = kwargs.get("extras_name_or_path", self.name_or_path)
-        
+
         # path to an accuracy recovery adapter, either local or remote
         self.accuracy_recovery_adapter = kwargs.get("accuracy_recovery_adapter", None)
-        
+
         # parse ARA from qtype
         if self.qtype is not None and "|" in self.qtype:
             self.qtype, self.accuracy_recovery_adapter = self.qtype.split('|')
 
         # compile the model with torch compile
         self.compile = kwargs.get("compile", False)
-        
+
         # kwargs to pass to the model
         self.model_kwargs = kwargs.get("model_kwargs", {})
 
@@ -965,12 +965,12 @@ class DatasetConfig:
         self.control_path: Union[str,List[str]] = kwargs.get('control_path', None)  # depth maps, etc
         if self.control_path == '':
             self.control_path = None
-        
+
         # handle multi control inputs from the ui. It is just easier to handle it here for a cleaner ui experience
         control_path_1 = kwargs.get('control_path_1', None)
         control_path_2 = kwargs.get('control_path_2', None)
         control_path_3 = kwargs.get('control_path_3', None)
-        
+
         if any([control_path_1, control_path_2, control_path_3]):
             control_paths = []
             if control_path_1:
@@ -980,7 +980,7 @@ class DatasetConfig:
             if control_path_3:
                 control_paths.append(control_path_3)
             self.control_path = control_paths
-        
+
         # color for transparent reigon of control images with transparency
         self.control_transparent_color: List[int] = kwargs.get('control_transparent_color', [0, 0, 0])
         # inpaint images should be webp/png images with alpha channel. The alpha 0 (invisible) section will
@@ -1066,10 +1066,10 @@ class DatasetConfig:
             self.controls = [self.controls]
         # remove empty strings
         self.controls = [control for control in self.controls if control.strip() != '']
-        
+
         # if true, will use a fask method to get image sizes. This can result in errors. Do not use unless you know what you are doing
         self.fast_image_size: bool = kwargs.get('fast_image_size', False)
-        
+
         self.do_i2v: bool = kwargs.get('do_i2v', True)  # do image to video on models that are both t2i and i2v capable
 
 
@@ -1161,10 +1161,10 @@ class GenerateImageConfig:
         self.fps = fps
         self.ctrl_img = ctrl_img
         self.ctrl_idx = ctrl_idx
-        
+
         if ctrl_img_1 is None and ctrl_img is not None:
             ctrl_img_1 = ctrl_img
-        
+
         self.ctrl_img_1 = ctrl_img_1
         self.ctrl_img_2 = ctrl_img_2
         self.ctrl_img_3 = ctrl_img_3
@@ -1202,7 +1202,7 @@ class GenerateImageConfig:
         self.width = max(64, self.width - self.width % 8)  # round to divisible by 8
 
         self.logger = logger
-        
+
         self.do_cfg_norm: bool = do_cfg_norm
 
     def set_gen_time(self, gen_time: int = None):
@@ -1263,10 +1263,10 @@ class GenerateImageConfig:
         elif self.output_ext in ['wav', 'mp3']:
             # save audio file
             torchaudio.save(
-                self.get_image_path(count, max_count), 
+                self.get_image_path(count, max_count),
                 image[0].to('cpu'),
-                sample_rate=48000, 
-                format=None, 
+                sample_rate=48000,
+                format=None,
                 backend=None
             )
         else:
@@ -1421,22 +1421,22 @@ def validate_configs(
     # see if any datasets are caching text embeddings
     is_caching_text_embeddings = any(dataset.cache_text_embeddings for dataset in dataset_configs)
     if is_caching_text_embeddings:
-        
+
         # check if they are doing differential output preservation
         if train_config.diff_output_preservation:
             raise ValueError("Cannot use differential output preservation with caching text embeddings. Please set diff_output_preservation to False.")
-    
+
         # make sure they are all cached
         for dataset in dataset_configs:
             if not dataset.cache_text_embeddings:
                 raise ValueError("All datasets must have cache_text_embeddings set to True when caching text embeddings is enabled.")
-    
+
     # qwen image edit cannot cache text embeddings
     if model_config.arch == 'qwen_image_edit':
         if train_config.unload_text_encoder:
             raise ValueError("Cannot cache unload text encoder with qwen_image_edit model. Control images are encoded with text embeddings. You can cache the text embeddings though")
-    
+
     if train_config.diff_output_preservation and train_config.blank_prompt_preservation:
         raise ValueError("Cannot use both differential output preservation and blank prompt preservation at the same time. Please set one of them to False.")
 
-    
+

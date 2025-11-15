@@ -583,7 +583,7 @@ class LinearLayerMemoryManager(BaseLayerMemoryManager):
             self.module.ara_lora_ref().org_forward = _mm_forward
         else:
             self.module.forward = _mm_forward
-        
+
         self.module._memory_management_device = self.manager.process_device
 
 
@@ -640,5 +640,5 @@ class ConvLayerMemoryManager(BaseLayerMemoryManager):
             self.module.ara_lora_ref().org_forward = _mm_forward
         else:
             self.module.forward = _mm_forward
-        
+
         self.module._memory_management_device = self.manager.process_device

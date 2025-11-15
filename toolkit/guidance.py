@@ -434,11 +434,11 @@ def get_guided_loss_polarity(
                 train_config.linear_timesteps2,
                 train_config.timestep_type == 'linear',
             ])
-            
+
             timestep_type = 'linear' if linear_timesteps else None
             if timestep_type is None:
                 timestep_type = train_config.timestep_type
-            
+
             sd.noise_scheduler.set_train_timesteps(
                 1000,
                 device=device,
@@ -636,7 +636,7 @@ def targeted_flow_guidance(
 
         conditional_latents = batch.latents.to(device, dtype=dtype).detach()
         unconditional_latents = batch.unconditional_latents.to(device, dtype=dtype).detach()
-        
+
         # get a mask on the differential of the latents
         # this will be scaled from 0.0-1.0 with 1.0 being the largest differential
         abs_differential_mask = get_differential_mask(
@@ -644,7 +644,7 @@ def targeted_flow_guidance(
             unconditional_latents,
             gradient=True
         )
-        
+
         # get noisy latents for both conditional and unconditional predictions
         unconditional_noisy_latents = sd.add_noise(
             unconditional_latents,
@@ -658,11 +658,11 @@ def targeted_flow_guidance(
             timesteps
         ).detach()
         conditional_noisy_latents = sd.condition_noisy_latents(conditional_noisy_latents, batch)
-        
+
         # disable the lora to get a baseline prediction
         sd.network.is_active = False
         sd.unet.eval()
-        
+
         # get a baseline prediction of the model knowledge without the lora network
         # we do this with the unconditional noisy latents
         baseline_prediction = sd.predict_noise(
@@ -672,25 +672,25 @@ def targeted_flow_guidance(
             guidance_scale=1.0,
             **pred_kwargs
         ).detach()
-        
+
         # This is our normal flowmatching target
         # target = noise - latents
         # we need to target the baseline noise but with our conditional latents
         # to do this we first have to determine the baseline_prediction noise by reversing the flowmatching target
         baseline_predicted_noise = baseline_prediction + unconditional_latents
-        
+
         # baseline_predicted_noise is now the noise prediction our model would make with a the unconditional image.
         # we use this as our new noise target to preserve the existing knowledge of the image.
         # we apply a mask to this noise to only allow the differential of the conditional latents to be learned
         baseline_predicted_noise = (1 - abs_differential_mask) * baseline_predicted_noise
         masked_noise = abs_differential_mask * noise
         target_noise = masked_noise + baseline_predicted_noise
-        
+
         # compute our new target prediction using our current knowledge noise with our conditional latents
         # this makes it so the only new information is the differential of our conditional and unconditional latents
         # forcing the network to preserve existing knowledge, but learn only our changes
         target_pred = (target_noise - conditional_latents).detach()
-        
+
     # make a prediction with the lora network active
     sd.unet.train()
     sd.network.is_active = True
@@ -702,13 +702,13 @@ def targeted_flow_guidance(
         guidance_scale=1.0,
         **pred_kwargs
     )
-    
+
     # target our baseline + diffirential noise target
     pred_loss = torch.nn.functional.mse_loss(
         prediction.float(),
         target_pred.float()
     )
-    
+
     return pred_loss
 
 

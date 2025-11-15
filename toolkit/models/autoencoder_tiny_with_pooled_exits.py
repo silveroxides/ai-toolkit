@@ -33,7 +33,7 @@ class DecoderTinyWithPooledExits(nn.Module):
         layers.append(l)
 
         pooled_exits = []
-        
+
 
         for i, num_block in enumerate(num_blocks):
             is_final_block = i == (len(num_blocks) - 1)
@@ -174,7 +174,7 @@ class AutoencoderTinyWithPooledExits(AutoencoderTiny):
 
         self.register_to_config(block_out_channels=decoder_block_out_channels)
         self.register_to_config(force_upcast=False)
-    
+
     @apply_forward_hook
     def decode_with_pooled_exits(
         self, x: torch.Tensor, generator: Optional[torch.Generator] = None, return_dict: bool = False

@@ -481,7 +481,7 @@ def show_tensors(imgs: torch.Tensor, name='AI Toolkit'):
     img_numpy = img_numpy.astype(np.uint8)
 
     show_img(img_numpy[0], name=name)
-    
+
 def save_tensors(imgs: torch.Tensor, path='output.png', fps=None):
     if len(imgs.shape) == 5 and imgs.shape[0] == 1:
         imgs = imgs.squeeze(0)
@@ -501,7 +501,7 @@ def save_tensors(imgs: torch.Tensor, path='output.png', fps=None):
     img_numpy = np.clip(img_numpy, 0, 1) * 255
     img_numpy = img_numpy.transpose(0, 2, 3, 1)
     img_numpy = img_numpy.astype(np.uint8)
-    
+
     if fps is not None and num_frames > 1:
         img_list = [PILImage.fromarray(img_numpy[i]) for i in range(num_frames)]
         duration = int(1000 / fps)

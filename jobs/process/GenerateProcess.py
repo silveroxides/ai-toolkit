@@ -87,7 +87,7 @@ class GenerateProcess(BaseProcess):
         self.torch_dtype = get_torch_dtype(self.get_conf('dtype', 'float16'))
 
         self.progress_bar = None
-        
+
         ModelClass = get_model_class(self.model_config)
         # if the model class has get_train_scheduler static method
         if hasattr(ModelClass, 'get_train_scheduler'):

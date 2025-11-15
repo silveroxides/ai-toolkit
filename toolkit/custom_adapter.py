@@ -102,10 +102,10 @@ class CustomAdapter(torch.nn.Module):
         self.mean_flow_adapter: MeanFlowAdapter = None
         self.subpixel_adapter: SubpixelAdapter = None
         self.i2v_adapter: I2VAdapter = None
-        
+
         self.conditional_embeds: Optional[torch.Tensor] = None
         self.unconditional_embeds: Optional[torch.Tensor] = None
-        
+
         self.cached_control_image_0_1: Optional[torch.Tensor] = None
 
         self.setup_adapter()
@@ -127,7 +127,7 @@ class CustomAdapter(torch.nn.Module):
                 dtype=self.sd_ref().dtype,
             )
             self.load_state_dict(loaded_state_dict, strict=False)
-    
+
     @property
     def do_direct_save(self):
         # some adapters save their weights directly, others like ip adapters split the state dict
@@ -136,7 +136,7 @@ class CustomAdapter(torch.nn.Module):
         if self.config.type in ['control_lora', 'subpixel', 'i2v', 'redux', 'mean_flow']:
             return True
         return False
-            
+
 
     def setup_adapter(self):
         torch_dtype = get_torch_dtype(self.sd_ref().dtype)
@@ -234,14 +234,14 @@ class CustomAdapter(torch.nn.Module):
                 )
             else:
                 self.te = AutoModel.from_pretrained(self.config.text_encoder_path).to(
-                    self.sd_ref().unet.device, 
+                    self.sd_ref().unet.device,
                     dtype=torch_dtype,
                 )
             self.te.to = lambda *args, **kwargs: None
             self.te.eval()
             self.tokenizer = AutoTokenizer.from_pretrained(self.config.text_encoder_path)
             self.llm_adapter = LLMAdapter(
-                adapter=self, 
+                adapter=self,
                 sd=self.sd_ref(),
                 llm=self.te,
                 tokenizer=self.tokenizer,
@@ -318,7 +318,7 @@ class CustomAdapter(torch.nn.Module):
     def edit_batch_raw(self, batch: DataLoaderBatchDTO):
         # happens on a raw batch before latents are created
         return batch
-    
+
     def edit_batch_processed(self, batch: DataLoaderBatchDTO):
         # happens after the latents are processed
         if self.adapter_type == "i2v":
@@ -505,7 +505,7 @@ class CustomAdapter(torch.nn.Module):
 
         if 'te_adapter' in state_dict:
             self.te_adapter.load_state_dict(state_dict['te_adapter'], strict=strict)
-            
+
         if 'llm_adapter' in state_dict:
             self.llm_adapter.load_state_dict(state_dict['llm_adapter'], strict=strict)
 
@@ -538,7 +538,7 @@ class CustomAdapter(torch.nn.Module):
                 for k2, v2 in v.items():
                     new_dict[k + '.' + k2] = v2
             self.redux_adapter.load_state_dict(new_dict, strict=True)
-        
+
         if self.adapter_type == 'control_lora':
             # state dict is seperated. so recombine it
             new_dict = {}
@@ -546,7 +546,7 @@ class CustomAdapter(torch.nn.Module):
                 for k2, v2 in v.items():
                     new_dict[k + '.' + k2] = v2
             self.control_lora.load_weights(new_dict, strict=strict)
-        
+
         if self.adapter_type == 'mean_flow':
             # state dict is seperated. so recombine it
             new_dict = {}
@@ -554,7 +554,7 @@ class CustomAdapter(torch.nn.Module):
                 for k2, v2 in v.items():
                     new_dict[k + '.' + k2] = v2
             self.mean_flow_adapter.load_weights(new_dict, strict=strict)
-        
+
         if self.adapter_type == 'i2v':
             # state dict is seperated. so recombine it
             new_dict = {}
@@ -562,7 +562,7 @@ class CustomAdapter(torch.nn.Module):
                 for k2, v2 in v.items():
                     new_dict[k + '.' + k2] = v2
             self.i2v_adapter.load_weights(new_dict, strict=strict)
-        
+
         if self.adapter_type == 'subpixel':
             # state dict is seperated. so recombine it
             new_dict = {}
@@ -650,11 +650,11 @@ class CustomAdapter(torch.nn.Module):
                 self.unconditional_embeds = extra_values.to(self.device, get_torch_dtype(self.sd_ref().dtype))
             else:
                 self.conditional_embeds = extra_values.to(self.device, get_torch_dtype(self.sd_ref().dtype))
-    
+
     def condition_noisy_latents(self, latents: torch.Tensor, batch:DataLoaderBatchDTO):
         with torch.no_grad():
             # todo add i2v start frame conditioning here
-            
+
             if self.adapter_type in ['i2v']:
                 return self.i2v_adapter.condition_noisy_latents(latents, batch)
             elif self.adapter_type in ['control_lora']:
@@ -676,7 +676,7 @@ class CustomAdapter(torch.nn.Module):
                             device=latents.device,
                         ).to(latents.device, latents.dtype)
                     if inpaint_tensor is not None and not do_dropout:
-                        
+
                         if inpaint_tensor.shape[1] == 4:
                             # get just the mask
                             inpainting_tensor_mask = inpaint_tensor[:, 3:4, :, :].to(latents.device, dtype=latents.dtype)
@@ -685,25 +685,25 @@ class CustomAdapter(torch.nn.Module):
                             inpainting_tensor_mask = inpaint_tensor[:, 0:1, :, :].to(latents.device, dtype=latents.dtype)
                         else:
                             inpainting_tensor_mask = inpaint_tensor
-                        
+
                         # # use our batch latents so we cna avoid ancoding again
                         inpainting_latent = batch.latents
-                        
+
                         # resize the mask to match the new encoded size
                         inpainting_tensor_mask = F.interpolate(inpainting_tensor_mask, size=(inpainting_latent.shape[2], inpainting_latent.shape[3]), mode='bilinear')
                         inpainting_tensor_mask = inpainting_tensor_mask.to(latents.device, latents.dtype)
-                        
+
                         do_mask_invert = False
                         if self.config.invert_inpaint_mask_chance > 0.0:
                             do_mask_invert = random.random() < self.config.invert_inpaint_mask_chance
                         if do_mask_invert:
                             # invert the mask
                             inpainting_tensor_mask = 1 - inpainting_tensor_mask
-                        
+
                         # mask out the inpainting area, it is currently 0 for inpaint area, and 1 for keep area
                         # we are zeroing our the latents in the inpaint area not on the pixel space.
                         inpainting_latent = inpainting_latent * inpainting_tensor_mask
-                        
+
                         # mask needs to be 1 for inpaint area and 0 for area to leave alone. So flip it.
                         inpainting_tensor_mask = 1 - inpainting_tensor_mask
                         # leave the mask as 0-1 and concat on channel of latents
@@ -714,21 +714,21 @@ class CustomAdapter(torch.nn.Module):
                         inpainting_latent = torch.zeros_like(latents)
                         # add ones for the mask since we are technically inpainting everything
                         inpainting_latent = torch.cat((inpainting_latent, torch.ones_like(inpainting_latent[:, :1, :, :])), dim=1)
-                    
+
                     if self.config.num_control_images == 1:
                         # this is our only control
                         control_latent = inpainting_latent.to(latents.device, latents.dtype)
                         latents = torch.cat((latents, control_latent), dim=1)
                         return latents.detach()
-                    
+
                 if control_tensor is None:
                     # concat zeros onto the latents
                     ctrl = torch.zeros(
                         latents.shape[0], # bs
                         latents.shape[1] * self.num_control_images, # ch
-                        latents.shape[2], 
-                        latents.shape[3], 
-                        device=latents.device, 
+                        latents.shape[2],
+                        latents.shape[3],
+                        device=latents.device,
                         dtype=latents.dtype
                     )
                     if inpainting_latent is not None:
@@ -739,18 +739,18 @@ class CustomAdapter(torch.nn.Module):
                 # if we have multiple control tensors, they come in like [bs, num_control_images, ch, h, w]
                 # if we have 1, it comes in like [bs, ch, h, w]
                 # stack out control tensors to be [bs, ch * num_control_images, h, w]
-                
+
                 control_tensor = batch.control_tensor.to(latents.device, dtype=latents.dtype)
-                
+
                 control_tensor_list = []
                 if len(control_tensor.shape) == 4:
                     control_tensor_list.append(control_tensor)
                 else:
                     # reshape
                     control_tensor = control_tensor.view(
-                        control_tensor.shape[0], 
-                        control_tensor.shape[1] * control_tensor.shape[2], 
-                        control_tensor.shape[3], 
+                        control_tensor.shape[0],
+                        control_tensor.shape[1] * control_tensor.shape[2],
+                        control_tensor.shape[3],
                         control_tensor.shape[4]
                     )
                     control_tensor_list = control_tensor.chunk(self.num_control_images, dim=1)
@@ -765,11 +765,11 @@ class CustomAdapter(torch.nn.Module):
                         control_tensor = control_tensor * 2 - 1
 
                         control_tensor = control_tensor.to(sd.vae_device_torch, dtype=sd.torch_dtype)
-                        
+
                         # if it is not the size of batch.tensor, (bs,ch,h,w) then we need to resize it
                         if control_tensor.shape[2] != batch.tensor.shape[2] or control_tensor.shape[3] != batch.tensor.shape[3]:
                             control_tensor = F.interpolate(control_tensor, size=(batch.tensor.shape[2], batch.tensor.shape[3]), mode='bicubic')
-                        
+
                         # encode it
                         control_latent = sd.encode_images(control_tensor).to(latents.device, latents.dtype)
                         control_latent_list.append(control_latent)
@@ -1061,7 +1061,7 @@ class CustomAdapter(torch.nn.Module):
 
                     if not is_training or not self.config.train_image_encoder:
                         img_embeds = img_embeds.detach()
-                    
+
                     img_embeds = self.redux_adapter(img_embeds.to(self.device, get_torch_dtype(self.sd_ref().dtype)))
 
                     prompt_embeds.text_embeds = torch.cat((prompt_embeds.text_embeds, img_embeds), dim=-2)
@@ -1119,7 +1119,7 @@ class CustomAdapter(torch.nn.Module):
                 to_cache = to_cache[:, 0:1, :, :, :]
                 to_cache = to_cache.squeeze(1)
             self.cached_control_image_0_1 = to_cache
-        
+
         if tensors_preprocessed is not None and has_been_preprocessed:
             tensors_0_1 = tensors_preprocessed
         # if self.adapter_type == 'ilora' or self.adapter_type == 'vision_direct' or self.adapter_type == 'te_augmenter':
@@ -1150,7 +1150,7 @@ class CustomAdapter(torch.nn.Module):
                     ).pixel_values
                 else:
                     clip_image = tensors_0_1
-                    
+
                 # if is pixtral
                 if self.config.image_encoder_arch == 'pixtral' and self.config.pixtral_random_image_size:
                     # get the random size
@@ -1167,15 +1167,15 @@ class CustomAdapter(torch.nn.Module):
                     height_tokens = (h - 1) // self.image_processor.image_patch_size + 1
                     assert width_tokens > 0
                     assert height_tokens > 0
-                    
+
                     new_image_size = (
                         width_tokens * self.image_processor.image_patch_size,
                         height_tokens * self.image_processor.image_patch_size,
                     )
-                    
+
                     # resize the image
                     clip_image = F.interpolate(clip_image, size=new_image_size, mode='bicubic', align_corners=False)
-                    
+
 
                 batch_size = clip_image.shape[0]
                 if self.config.control_image_dropout > 0 and is_training:
@@ -1192,7 +1192,7 @@ class CustomAdapter(torch.nn.Module):
                         else:
                             combine_list.append(clip_batch[i])
                     clip_image = torch.cat(combine_list, dim=0)
-                
+
                 if self.adapter_type in ['vision_direct', 'te_augmenter', 'i2v'] and not skip_unconditional:
                     # add an unconditional so we can save it
                     unconditional = self.get_empty_clip_image(batch_size, shape=clip_image.shape).to(

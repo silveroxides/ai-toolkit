@@ -49,7 +49,7 @@ class Timer:
         # sort by longest at top
         for timer_name, timings in sorted(self.timers.items(), key=lambda x: sum(x[1]), reverse=True):
             avg_time = sum(timings) / len(timings)
-            
+
             if not is_ui:
                 print(f" - {avg_time:.4f}s avg - {timer_name}, num = {len(timings)}")
             timing_dict[timer_name] = avg_time

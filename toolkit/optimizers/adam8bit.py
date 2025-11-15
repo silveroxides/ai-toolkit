@@ -6,7 +6,7 @@ from toolkit.optimizers.optimizer_utils import copy_stochastic, Auto8bitTensor, 
 class Adam8bit(Optimizer):
     """
     Implements Adam optimizer with 8-bit state storage and stochastic rounding.
-    
+
     Arguments:
         params (iterable): Iterable of parameters to optimize or dicts defining parameter groups
         lr (float): Learning rate (default: 1e-3)
@@ -15,7 +15,7 @@ class Adam8bit(Optimizer):
         weight_decay (float): Weight decay coefficient (default: 0)
         decouple (bool): Use AdamW style decoupled weight decay (default: True)
     """
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, 
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  weight_decay=0, decouple=True):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -25,13 +25,13 @@ class Adam8bit(Optimizer):
             raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
-        
+
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay,
                        decouple=decouple)
         super(Adam8bit, self).__init__(params, defaults)
-        
+
         self.is_stochastic_rounding_accumulation = False
-        
+
         # Setup stochastic grad accumulation hooks
         for group in self.param_groups:
             for param in group['params']:
@@ -62,13 +62,13 @@ class Adam8bit(Optimizer):
     @torch.no_grad()
     def step(self, closure=None):
         """Performs a single optimization step.
-        
+
         Arguments:
             closure (callable, optional): A closure that reevaluates the model and returns the loss.
         """
         # Call pre step
         self.step_hook()
-        
+
         loss = None
         if closure is not None:
             loss = closure()
@@ -124,20 +124,20 @@ class Adam8bit(Optimizer):
 
                 # Take step
                 p_fp32.data.addcdiv_(exp_avg, denom, value=-step_size)
-                
+
                 # Update state with stochastic rounding
                 state['exp_avg'] = Auto8bitTensor(exp_avg)
                 state['exp_avg_sq'] = Auto8bitTensor(exp_avg_sq)
-                
+
                 # Apply stochastic rounding to parameters
                 copy_stochastic(p.data, p_fp32.data)
 
         return loss
-    
+
     def state_dict(self):
         """Returns the state of the optimizer as a dict."""
         state_dict = super().state_dict()
-        
+
         # Convert Auto8bitTensor objects to regular state dicts
         for param_id, param_state in state_dict['state'].items():
             for key, value in param_state.items():
@@ -146,14 +146,14 @@ class Adam8bit(Optimizer):
                         '_type': 'Auto8bitTensor',
                         'state': value.state_dict()
                     }
-        
+
         return state_dict
 
     def load_state_dict(self, state_dict):
         """Loads the optimizer state."""
         # First, load the basic state
         super().load_state_dict(state_dict)
-        
+
         # Then convert any Auto8bitTensor states back to objects
         for param_id, param_state in self.state.items():
             for key, value in param_state.items():

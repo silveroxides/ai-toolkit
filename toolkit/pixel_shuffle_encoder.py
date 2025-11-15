@@ -64,12 +64,12 @@ class AutoencoderPixelMixer(nn.Module):
         self._device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.config = Config()
-        
+
         if downscale_factor == 8:
             # we go by len of block out channels in code, so simulate it
             self.config.block_out_channels = (1, 1, 1, 1)
             self.config.latent_channels = 192
-        
+
         elif downscale_factor == 16:
             # we go by len of block out channels in code, so simulate it
             self.config.block_out_channels = (1, 1, 1, 1, 1)

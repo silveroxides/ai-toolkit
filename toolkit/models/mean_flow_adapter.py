@@ -122,7 +122,7 @@ def mean_flow_omnigen2_time_text_embed_forward(
         )
     timestep_proj = self.time_proj(timestep).to(dtype=dtype)
     time_embed = self.timestep_embedder(timestep_proj)
-    
+
     # mean flow stuff
     if mean_flow_adapter.is_active:
         # todo make sure that timesteps is batched correctly, I think diffusers expects non batched timesteps
@@ -133,7 +133,7 @@ def mean_flow_omnigen2_time_text_embed_forward(
             torch.cat([time_embed_start, time_embed_end], dim=-1)
         )
         time_embed = time_embed.to(orig_dtype)
-    
+
     caption_embed = self.caption_embedder(text_hidden_states)
     return time_embed, caption_embed
 
@@ -226,7 +226,7 @@ class MeanFlowAdapter(torch.nn.Module):
                 * transformer.config.attention_head_dim
             )
             convert_flux_to_mean_flow(transformer)
-        
+
         elif self.model_config.arch in ["omnigen2"]:
             transformer: 'OmniGen2Transformer2DModel' = sd.unet
             emb_dim = (
@@ -240,7 +240,7 @@ class MeanFlowAdapter(torch.nn.Module):
             emb_dim * 2,
             emb_dim,
         )
-        
+
         # make the model function as before adding this adapter by initializing the weights
         with torch.no_grad():
             self.mean_flow_timestep_embedder.weight.zero_()

@@ -216,8 +216,8 @@ class HiDreamImageEditingPipeline(DiffusionPipeline, HiDreamImageLoraLoaderMixin
         self.default_sample_size = 128
         if getattr(self, "tokenizer_4", None) is not None:
             self.tokenizer_4.pad_token = self.tokenizer_4.eos_token
-        
-        
+
+
         self.aggressive_unloading = aggressive_unloading
 
     def _get_t5_prompt_embeds(
@@ -1019,8 +1019,8 @@ class HiDreamImageEditingPipeline(DiffusionPipeline, HiDreamImageLoraLoaderMixin
             target_prompt_embeds_llama3 = prompt_embeds_llama3
             target_negative_prompt_embeds_llama3 = negative_prompt_embeds_llama3
             target_pooled_prompt_embeds = pooled_prompt_embeds
-            target_negative_pooled_prompt_embeds = negative_pooled_prompt_embeds 
-        
+            target_negative_pooled_prompt_embeds = negative_pooled_prompt_embeds
+
         image = self.image_processor.preprocess(image)
 
         image_latents = self.prepare_image_latents(
@@ -1045,7 +1045,7 @@ class HiDreamImageEditingPipeline(DiffusionPipeline, HiDreamImageLoraLoaderMixin
                 prompt_embeds_t5 = torch.cat([negative_prompt_embeds_t5, negative_prompt_embeds_t5, prompt_embeds_t5], dim=0)
                 prompt_embeds_llama3 = torch.cat([negative_prompt_embeds_llama3, negative_prompt_embeds_llama3, prompt_embeds_llama3], dim=1)
                 pooled_prompt_embeds = torch.cat([negative_pooled_prompt_embeds, negative_pooled_prompt_embeds, pooled_prompt_embeds], dim=0)
-            
+
             target_prompt_embeds_t5 = torch.cat([target_negative_prompt_embeds_t5, target_prompt_embeds_t5], dim=0)
             target_prompt_embeds_llama3 = torch.cat([target_negative_prompt_embeds_llama3, target_prompt_embeds_llama3], dim=1)
             target_pooled_prompt_embeds = torch.cat([target_negative_pooled_prompt_embeds, target_pooled_prompt_embeds], dim=0)

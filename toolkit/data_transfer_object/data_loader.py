@@ -56,32 +56,32 @@ class FileItemDTO(
             file_key = self.path.replace(dataset_root, '')
         else:
             file_key = os.path.basename(self.path)
-        
+
         file_signature = get_quick_signature_string(self.path)
         if file_signature is None:
             raise Exception("Error: Could not get file signature for {self.path}")
-        
+
         use_db_entry = False
         if file_key in size_database:
             db_entry = size_database[file_key]
             if db_entry is not None and len(db_entry) >= 3 and db_entry[2] == file_signature:
                 use_db_entry = True
-        
+
         if use_db_entry:
             w, h, _ = size_database[file_key]
         elif self.is_video:
             # Open the video file
             video = cv2.VideoCapture(self.path)
-            
+
             # Check if video opened successfully
             if not video.isOpened():
                 raise Exception(f"Error: Could not open video file {self.path}")
-            
+
             # Get width and height
             width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
             w, h = width, height
-            
+
             # Release the video capture object immediately
             video.release()
             size_database[file_key] = (width, height, file_signature)
@@ -178,7 +178,7 @@ class DataLoaderBatchDTO:
                     else:
                         control_tensors.append(x.control_tensor)
                 self.control_tensor = torch.cat([x.unsqueeze(0) for x in control_tensors])
-            
+
             # handle control tensor list
             if any([x.control_tensor_list is not None for x in self.file_items]):
                 self.control_tensor_list = []
@@ -187,8 +187,8 @@ class DataLoaderBatchDTO:
                         self.control_tensor_list.append(x.control_tensor_list)
                     else:
                         raise Exception(f"Could not find control tensors for all file items, missing for {x.path}")
-                    
-                
+
+
             self.inpaint_tensor: Union[torch.Tensor, None] = None
             if any([x.inpaint_tensor is not None for x in self.file_items]):
                 # find one to use as a base
@@ -284,7 +284,7 @@ class DataLoaderBatchDTO:
                         self.clip_image_embeds_unconditional.append(x.clip_image_embeds_unconditional)
                     else:
                         raise Exception("clip_image_embeds_unconditional is None for some file items")
-            
+
             if any([x.prompt_embeds is not None for x in self.file_items]):
                 # find one to use as a base
                 base_prompt_embeds = None
@@ -299,7 +299,7 @@ class DataLoaderBatchDTO:
                     else:
                         prompt_embeds_list.append(x.prompt_embeds)
                 self.prompt_embeds = concat_prompt_embeds(prompt_embeds_list)
-                    
+
 
         except Exception as e:
             print(e)
@@ -333,7 +333,7 @@ class DataLoaderBatchDTO:
         del self.control_tensor
         for file_item in self.file_items:
             file_item.cleanup()
-    
+
     @property
     def dataset_config(self) -> 'DatasetConfig':
         if len(self.file_items) > 0:

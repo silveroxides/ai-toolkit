@@ -18,7 +18,7 @@ from toolkit.config_modules import AdapterConfig
 if TYPE_CHECKING:
     from toolkit.stable_diffusion_model import StableDiffusion
     from toolkit.custom_adapter import CustomAdapter
-    
+
 
 # matches distribution of randn
 class Norm(nn.Module):
@@ -32,13 +32,13 @@ class Norm(nn.Module):
         dims = tuple(range(1, x.dim()))
         mean = x.mean(dim=dims, keepdim=True)
         std = x.std(dim=dims, keepdim=True)
-        
+
         # Normalize
         return self.target_std * (x - mean) / (std + self.eps) + self.target_mean
 
 
 norm_layer = Norm()
-    
+
 class SparseAutoencoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(SparseAutoencoder, self).__init__()
@@ -535,12 +535,12 @@ class VisionDirectAdapter(torch.nn.Module):
                 self.token_size = vision_model.config.projection_dim
         else:
             self.token_size = vision_model.config.hidden_size
-            
+
         self.mid_size = self.token_size
-        
+
         if self.config.conv_pooling and self.config.conv_pooling_stacks > 1:
             self.mid_size = self.mid_size * self.config.conv_pooling_stacks
-        
+
         # if pixtral, use cross attn dim for more sparse representation if only doing double transformers
         if is_pixtral and self.config.flux_only_double:
             if is_flux:
@@ -725,7 +725,7 @@ class VisionDirectAdapter(torch.nn.Module):
             self.block_scaler.requires_grad = True
         else:
             self.block_scaler = None
-        
+
         self.pool = None
 
         if self.config.num_tokens is not None:
@@ -750,13 +750,13 @@ class VisionDirectAdapter(torch.nn.Module):
                 nn.Conv1d(sequence_length, self.config.num_tokens, 1, bias=False),
                 Norm(),
             )
-        
+
         elif self.config.image_encoder_arch == "pixtral":
             self.resampler = VisionLanguageAdapter(
                 in_dim=self.token_size,
                 out_dim=self.mid_size,
             )
-        
+
         self.sparse_autoencoder = None
         if self.config.conv_pooling:
             vision_config = self.adapter_ref().vision_encoder.config
@@ -776,7 +776,7 @@ class VisionDirectAdapter(torch.nn.Module):
                 hidden_dim=hidden_dim,
                 output_dim=self.config.sparse_autoencoder_dim
             )
-        
+
         if self.config.clip_layer == "image_embeds":
             self.proj = nn.Linear(self.token_size, self.token_size)
 
@@ -797,7 +797,7 @@ class VisionDirectAdapter(torch.nn.Module):
     def forward(self, input):
         # block scaler keeps moving dtypes. make sure it is float32 here
         # todo remove this when we have a real solution
-        
+
         if self.block_scaler is not None and self.block_scaler.dtype != torch.float32:
             self.block_scaler.data = self.block_scaler.data.to(torch.float32)
         # if doing image_embeds, normalize here

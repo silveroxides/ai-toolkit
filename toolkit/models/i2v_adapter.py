@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from toolkit.config_modules import AdapterConfig, TrainConfig, ModelConfig
     from toolkit.custom_adapter import CustomAdapter
 
-    
+
 class FrameEmbedder(torch.nn.Module):
     def __init__(
         self,
@@ -29,10 +29,10 @@ class FrameEmbedder(torch.nn.Module):
         # goes through a conv patch embedding first and is then flattened
         # hidden_states = self.patch_embedding(hidden_states)
         # hidden_states = hidden_states.flatten(2).transpose(1, 2)
-        
+
         inner_dim = orig_layer.out_channels
         patch_size = adapter.sd_ref().model.config.patch_size
-        
+
         self.patch_embedding = torch.nn.Conv3d(in_channels, inner_dim, kernel_size=patch_size, stride=patch_size)
 
         self.adapter_ref: weakref.ref = weakref.ref(adapter)
@@ -75,7 +75,7 @@ class FrameEmbedder(torch.nn.Module):
             # make sure lora is not active
             if self.adapter_ref().control_lora is not None:
                 self.adapter_ref().control_lora.is_active = False
-            
+
             if x.shape[1] > self.orig_layer_ref().in_channels:
                 # we have i2v, so we need to remove the extra channels
                 x = x[:, :self.orig_layer_ref().in_channels, :, :, :]
@@ -84,26 +84,26 @@ class FrameEmbedder(torch.nn.Module):
         # make sure lora is active
         if self.adapter_ref().control_lora is not None:
             self.adapter_ref().control_lora.is_active = True
-            
+
         # x is arranged channels cat(orig_input = 16, temporal_conditioning_mask = 4, encoded_first_frame=16)
         # (16 + 4 + 16) = 36 channels
         # (batch_size, 36, num_frames, latent_height, latent_width)
 
         orig_device = x.device
         orig_dtype = x.dtype
-        
+
         orig_in = x[:, :16, :, :, :]
         orig_out = self.orig_layer_ref()._orig_i2v_adapter_forward(orig_in)
-        
+
         # remove original stuff
         x = x[:, 16:, :, :, :]
 
         x = x.to(self.patch_embedding.weight.device, dtype=self.patch_embedding.weight.dtype)
 
         x = self.patch_embedding(x)
-        
+
         x = x.to(orig_device, dtype=orig_dtype)
-        
+
         # add the original out
         x = x + orig_out
         return x
@@ -148,7 +148,7 @@ class AttentionHog(torch.nn.Module):
         self.model_ref: weakref.ref = weakref.ref(model)
 
         qk_norm = model.config.qk_norm
-        
+
         # layers
         self.add_k_proj = torch.nn.Linear(
             added_kv_proj_dim,
@@ -225,32 +225,32 @@ def new_wan_forward(
     # prevent circular import
     from toolkit.models.wan21.wan_utils import add_first_frame_conditioning
     adapter:'I2VAdapter' = self._i2v_adapter_ref()
-    
+
     if adapter.is_active:
         # activate the condition embedder
         self.condition_embedder.image_embedder = adapter.image_embedder
-        
+
         # for wan they are putting the image emcoder embeds on the unconditional
         # this needs to be fixed as that wont work. For now, we will will use the embeds we have in order
         # we cache an conditional and an unconditional embed. On sampling, it samples conditional first,
         # then unconditional. So we just need to keep track of which one we are using. This is a horrible hack
-        # TODO find a not stupid way to do this. 
-        
+        # TODO find a not stupid way to do this.
+
         if adapter.adapter_ref().is_sampling:
             if not hasattr(self, '_do_unconditional'):
                 # set it to true so we alternate to false immediatly
                 self._do_unconditional = True
-            
+
             # alternate it
             self._do_unconditional = not self._do_unconditional
             if self._do_unconditional:
                 # slightly reduce strength of conditional for the unconditional
                 # encoder_hidden_states_image = adapter.adapter_ref().conditional_embeds * 0.5
                 # shuffle the embedding tokens so we still have all the information, but it is scrambled
-                # this will prevent things like color from being cfg overweights, but still sharpen content. 
-                
+                # this will prevent things like color from being cfg overweights, but still sharpen content.
+
                 encoder_hidden_states_image = shuffle_tensor_along_axis(
-                    adapter.adapter_ref().conditional_embeds, 
+                    adapter.adapter_ref().conditional_embeds,
                     axis=1
                 )
                 # encoder_hidden_states_image = adapter.adapter_ref().unconditional_embeds
@@ -260,7 +260,7 @@ def new_wan_forward(
         else:
             # doing a normal training run, always use conditional embeds
             encoder_hidden_states_image = adapter.adapter_ref().conditional_embeds
-        
+
         # add the first frame conditioning
         if adapter.frame_embedder is not None:
             with torch.no_grad():
@@ -274,12 +274,12 @@ def new_wan_forward(
                 conditioning_frame = conditioning_frame.to(
                     hidden_states.device, dtype=hidden_states.dtype
                 )
-                    
+
                 # if doing a full denoise, the latent input may be full channels here, only get first 16
                 if hidden_states.shape[1] > 16:
                     hidden_states = hidden_states[:, :16, :, :, :]
-                
-                
+
+
                 hidden_states = add_first_frame_conditioning(
                     latent_model_input=hidden_states,
                     first_frame=conditioning_frame,
@@ -288,7 +288,7 @@ def new_wan_forward(
     else:
         # not active deactivate the condition embedder
         self.condition_embedder.image_embedder = None
-    
+
     return self._orig_i2v_adapter_forward(
         hidden_states=hidden_states,
         timestep=timestep,
@@ -297,7 +297,7 @@ def new_wan_forward(
         return_dict=return_dict,
         attention_kwargs=attention_kwargs,
     )
-    
+
 
 class I2VAdapter(torch.nn.Module):
     def __init__(
@@ -322,12 +322,12 @@ class I2VAdapter(torch.nn.Module):
         self.control_lora = None
         self.image_processor_ref: weakref.ref = weakref.ref(image_processor)
         self.vision_encoder_ref: weakref.ref = weakref.ref(vision_encoder)
-        
+
         ve_img_size = vision_encoder.config.image_size
         ve_patch_size = vision_encoder.config.patch_size
         num_patches = (ve_img_size // ve_patch_size) ** 2
         num_vision_tokens = num_patches
-        
+
         # siglip does not have a class token
         if not vision_encoder.__class__.__name__.lower().startswith("siglip"):
             num_vision_tokens = num_patches + 1
@@ -427,18 +427,18 @@ class I2VAdapter(torch.nn.Module):
                 )
                 # set the attn function to ours that handles custom number of vision tokens
                 block.attn2.set_processor(WanAttnProcessor2_0(num_vision_tokens))
-                
+
                 attn_hog_list.append(attn_module)
         else:
             raise ValueError(f"Model {model_class} not supported")
 
         self.attn_hog_list = torch.nn.ModuleList(attn_hog_list)
         self.attn_hog_list.to(self.device_torch)
-        
+
         inner_dim = sd.model.config.num_attention_heads * sd.model.config.attention_head_dim
         image_embed_dim = vision_encoder.config.hidden_size
         self.image_embedder = WanImageEmbedding(image_embed_dim, inner_dim)
-        
+
         # override the forward method
         if model_class == 'WanTransformer3DModel':
             self.sd_ref().model._orig_i2v_adapter_forward = self.sd_ref().model.forward
@@ -446,11 +446,11 @@ class I2VAdapter(torch.nn.Module):
                 new_wan_forward,
                 self.sd_ref().model
             )
-            
+
             # add the wan image embedder
             self.sd_ref().model.condition_embedder._image_embedder = self.image_embedder
             self.sd_ref().model.condition_embedder._image_embedder.to(self.device_torch)
-        
+
         self.sd_ref().model._i2v_adapter_ref = weakref.ref(self)
 
     def get_params(self):
@@ -488,7 +488,7 @@ class I2VAdapter(torch.nn.Module):
         # add the attn hogs
         for attn_hog in self.attn_hog_list:
             params += list(attn_hog.parameters())
-        
+
         # add the image embedder
         if self.image_embedder is not None:
             params += list(self.image_embedder.parameters())
@@ -499,7 +499,7 @@ class I2VAdapter(torch.nn.Module):
         attn_hog_sd = {}
         frame_embedder_sd = {}
         image_embedder_sd = {}
-        
+
         for key, value in state_dict.items():
             if "frame_embedder" in key:
                 new_key = key.replace("frame_embedder.", "")
@@ -539,18 +539,18 @@ class I2VAdapter(torch.nn.Module):
         attn_hog_sd = self.attn_hog_list.state_dict()
         for key, value in attn_hog_sd.items():
             lora_sd[f"attn_hog.{key}"] = value
-        
+
         # add the image embedder
         image_embedder_sd = self.image_embedder.state_dict()
         for key, value in image_embedder_sd.items():
             lora_sd[f"image_embedder.{key}"] = value
-            
+
         return lora_sd
-    
+
     def condition_noisy_latents(self, latents: torch.Tensor, batch:DataLoaderBatchDTO):
         # todo handle start frame
         return latents
-    
+
     def edit_batch_processed(self, batch: DataLoaderBatchDTO):
         with torch.no_grad():
             # we will alway get a clip image frame, if one is not passed, use image
@@ -565,11 +565,11 @@ class I2VAdapter(torch.nn.Module):
                 else:
                     # we have a single image
                     first_frames = tensor.clone()
-                    
+
                 # it is -1 to 1, change it to 0 to 1
                 first_frames = (first_frames + 1) / 2
-                    
-                # clip image tensors are preprocessed. 
+
+                # clip image tensors are preprocessed.
                 tensors_0_1 = first_frames.to(dtype=torch.float16)
                 clip_out = self.adapter_ref().clip_image_processor(
                     images=tensors_0_1,
@@ -577,7 +577,7 @@ class I2VAdapter(torch.nn.Module):
                     do_resize=True,
                     do_rescale=False,
                 ).pixel_values
-                
+
                 batch.clip_image_tensor = clip_out.to(self.device_torch)
         return batch
 

@@ -58,7 +58,7 @@ def convert_to_original(state_dict):
             new_key = new_key.replace("to_k", "k")
         elif "to_v" in new_key:
             new_key = new_key.replace("to_v", "v")
-        
+
         # img attn projection
         elif "add_k_proj" in new_key:
             new_key = new_key.replace("add_k_proj", "k_img")

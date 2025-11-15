@@ -24,11 +24,11 @@ class FakeTextEncoder(torch.nn.Module):
     @property
     def device(self):
         return self._device
-    
+
     @property
     def dtype(self):
         return self._dtype
-    
+
     def to(self, *args, **kwargs):
         return self
 

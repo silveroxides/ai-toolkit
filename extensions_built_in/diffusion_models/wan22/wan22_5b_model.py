@@ -104,10 +104,10 @@ class Wan225bModel(Wan21):
         )
 
         self._wan_cache = None
-    
+
     def load_model(self):
         super().load_model()
-        
+
         # patch the condition embedder
         self.model.condition_embedder.forward = partial(time_text_monkeypatch, self.model.condition_embedder)
 
@@ -243,7 +243,7 @@ class Wan225bModel(Wan21):
         # for wan, only do i2v for video for now. Images do normal t2i
         conditioned_latent = latent_model_input
         noise_mask = None
-        
+
         if batch.dataset_config.do_i2v:
             with torch.no_grad():
                 frames = batch.tensor

@@ -24,13 +24,8 @@ from toolkit.print import print_acc
 from toolkit.prompt_utils import PromptEmbeds, concat_prompt_embeds
 from toolkit.reference_adapter import ReferenceAdapter
 from toolkit.stable_diffusion_model import StableDiffusion, BlankNetwork
-from toolkit.train_tools import (
-    get_torch_dtype,
-    apply_snr_weight,
-    add_all_snr_to_noise_scheduler,
-    apply_learnable_snr_gos,
-    LearnableSNRGamma,
-)
+from toolkit.train_tools import get_torch_dtype, apply_snr_weight, add_all_snr_to_noise_scheduler, \
+    apply_learnable_snr_gos, LearnableSNRGamma
 import gc
 import torch
 from jobs.process import BaseSDTrainProcess
@@ -51,11 +46,9 @@ def flush():
     gc.collect()
 
 
-adapter_transforms = transforms.Compose(
-    [
-        transforms.ToTensor(),
-    ]
-)
+adapter_transforms = transforms.Compose([
+    transforms.ToTensor(),
+])
 
 
 class SDTrainer(BaseSDTrainProcess):
@@ -609,7 +602,7 @@ class SDTrainer(BaseSDTrainProcess):
                         # video B,C,T,H,W
                         lat_height = batch.latents.shape[3]
                         lat_width = batch.latents.shape[4]
-                    else: 
+                    else:
                         lat_height = batch.latents.shape[2]
                         lat_width = batch.latents.shape[3]
                     # resize to size of noise_pred
@@ -620,7 +613,7 @@ class SDTrainer(BaseSDTrainProcess):
 
                     if len(noise_pred.shape) == 5:
                         prior_mask = prior_mask.unsqueeze(2)  # add time dimension back for video
-                        prior_mask = prior_mask.repeat(1, 1, noise_pred.shape[2], 1, 1) 
+                        prior_mask = prior_mask.repeat(1, 1, noise_pred.shape[2], 1, 1)
 
                     prior_mask_multiplier = 1.0 - prior_mask
 
@@ -629,8 +622,8 @@ class SDTrainer(BaseSDTrainProcess):
                     prior_mask_multiplier = prior_mask_multiplier / prior_mask_multiplier.mean()
                 if hasattr(self.sd, 'get_loss_target'):
                     target = self.sd.get_loss_target(
-                        noise=noise, 
-                        batch=batch, 
+                        noise=noise,
+                        batch=batch,
                         timesteps=timesteps,
                     ).detach()
                 elif self.sd.is_flow_matching:

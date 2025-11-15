@@ -224,12 +224,12 @@ class BaseSDTrainProcess(BaseTrainProcess):
         self.datasets_reg = None
         self.dataset_configs: List[DatasetConfig] = []
         self.params = []
-        
+
         # add dataset text embedding cache to their config
         if self.train_config.cache_text_embeddings:
             for raw_dataset in raw_datasets:
                 raw_dataset['cache_text_embeddings'] = True
-        
+
         if raw_datasets is not None and len(raw_datasets) > 0:
             for raw_dataset in raw_datasets:
                 dataset = DatasetConfig(**raw_dataset)
@@ -248,7 +248,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                         self.datasets = []
                     self.datasets.append(dataset)
                 self.dataset_configs.append(dataset)
-        
+
         self.is_caching_text_embeddings = any(
             dataset.cache_text_embeddings for dataset in self.dataset_configs
         )
@@ -346,9 +346,9 @@ class BaseSDTrainProcess(BaseTrainProcess):
             self.named_lora = True
         self.snr_gos: Union[LearnableSNRGamma, None] = None
         self.ema: ExponentialMovingAverage = None
-        
+
         validate_configs(self.train_config, self.model_config, self.save_config, self.dataset_configs)
-        
+
         do_profiler = self.get_conf('torch_profiler', False)
         self.torch_profiler = None if not do_profiler else torch.profiler.profile(
             activities=[
@@ -356,7 +356,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                 torch.profiler.ProfilerActivity.CUDA,
             ],
         )
-        
+
         self.current_boundary_index = 0
         self.steps_this_boundary = 0
         self.num_consecutive_oom = 0
@@ -425,7 +425,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
 
             if self.adapter_config is not None and self.adapter_config.test_img_path is not None:
                 extra_args['adapter_image_path'] = test_image_paths[i]
-            
+
             sample_item = sample_config.samples[i]
             if sample_item.seed is not None:
                 current_seed = sample_item.seed
@@ -564,9 +564,9 @@ class BaseSDTrainProcess(BaseTrainProcess):
             # Combine and sort the lists
             combined_items = safetensors_files + directories + pt_files
             combined_items.sort(key=os.path.getctime)
-            
+
             num_saves_to_keep = self.save_config.max_step_saves_to_keep
-            
+
             if hasattr(self.sd, 'max_step_saves_to_keep_multiplier'):
                 num_saves_to_keep *= self.sd.max_step_saves_to_keep_multiplier
 
@@ -1395,7 +1395,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                     )
 
             with self.timer('prepare_scheduler'):
-                
+
                 batch_size = len(batch.file_items)
                 min_noise_steps = self.train_config.min_denoising_steps
                 max_noise_steps = self.train_config.max_denoising_steps
@@ -1429,7 +1429,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                         self.train_config.timestep_type == 'linear',
                         self.train_config.timestep_type == 'one_step',
                     ])
-                    
+
                     timestep_type = 'linear' if linear_timesteps else None
                     if timestep_type is None:
                         timestep_type = self.train_config.timestep_type
@@ -1473,8 +1473,8 @@ class BaseSDTrainProcess(BaseTrainProcess):
             # clip min max indicies
             min_noise_steps = max(min_noise_steps, 0)
             max_noise_steps = min(max_noise_steps, num_train_timesteps - 1)
-            
-                    
+
+
             with self.timer('prepare_timesteps_indices'):
 
                 content_or_style = self.train_config.content_or_style
@@ -1550,7 +1550,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
             with self.timer('convert_timestep_indices_to_timesteps'):
                 # convert the timestep_indices to a timestep
                 timesteps = self.sd.noise_scheduler.timesteps[timestep_indices.long()]
-                
+
             with self.timer('prepare_noise'):
                 # get noise
                 noise = self.get_noise(
@@ -1586,7 +1586,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                         device=noise.device,
                         dtype=noise.dtype
                     ) * self.train_config.random_noise_multiplier
-                
+
             with self.timer('make_noisy_latents'):
 
                 noise = noise * noise_multiplier
@@ -1868,7 +1868,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
         self.hook_after_sd_init_before_load()
         # run base sd process run
         self.sd.load_model()
-        
+
         # compile the model if needed
         if self.model_config.compile:
             try:
@@ -1896,7 +1896,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                     # if it has it
                     if hasattr(te, "enable_xformers_memory_efficient_attention"):
                         te.enable_xformers_memory_efficient_attention()
-        
+
         if self.train_config.attention_backend != 'native':
             if hasattr(vae, 'set_attention_backend'):
                 vae.set_attention_backend(self.train_config.attention_backend)
@@ -2201,7 +2201,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                     print_acc(f"Loading from {latest_save_path}")
                     extra_weights = self.load_weights(latest_save_path)
                     self.network.multiplier = 1.0
-                
+
                 if self.network_config.layer_offloading:
                     MemoryManager.attach(
                         self.network,
@@ -2624,7 +2624,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
             if self.torch_profiler is not None:
                 torch.cuda.synchronize()  # Make sure all CUDA ops are done
                 self.torch_profiler.stop()
-                
+
                 print("\n==== Profile Results ====")
                 print(self.torch_profiler.key_averages().table(sort_by="cpu_time_total", row_limit=1000))
             self.timer.stop('train_loop')
@@ -2670,7 +2670,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                 if self.step_num != self.start_step:
                     if is_sample_step or is_save_step:
                         self.accelerator.wait_for_everyone()
-                        
+
                     if is_save_step:
                         self.accelerator
                         # print above the progress bar
@@ -2685,7 +2685,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                         flush_next = True
                         if self.progress_bar is not None:
                             self.progress_bar.unpause()
-                            
+
                     if is_sample_step:
                         if self.progress_bar is not None:
                             self.progress_bar.pause()

@@ -304,7 +304,7 @@ def apply_rotary_emb(x, cos, sin):
 
 class DiT(ModelMixin, ConfigMixin, FromOriginalModelMixin, PeftAdapterMixin):  # type: ignore[misc]
     _supports_gradient_checkpointing = True
-    
+
     @register_to_config
     def __init__(
         self,

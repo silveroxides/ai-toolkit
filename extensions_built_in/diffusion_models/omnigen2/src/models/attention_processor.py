@@ -40,13 +40,13 @@ from .embeddings import apply_rotary_emb
 class OmniGen2AttnProcessorFlash2Varlen:
     """
     Processor for implementing scaled dot-product attention with flash attention and variable length sequences.
-    
+
     This processor implements:
     - Flash attention with variable length sequences
     - Rotary position embeddings (RoPE)
     - Query-Key normalization
     - Proportional attention scaling
-    
+
     Args:
         None
     """
@@ -137,7 +137,7 @@ class OmniGen2AttnProcessorFlash2Varlen:
             (cu_seqlens_q, cu_seqlens_k),
             (max_seqlen_in_batch_q, max_seqlen_in_batch_k),
         )
-            
+
     def __call__(
         self,
         attn: Attention,
@@ -240,23 +240,23 @@ class OmniGen2AttnProcessorFlash2Varlen:
         # Apply output projection
         hidden_states = attn.to_out[0](hidden_states)
         hidden_states = attn.to_out[1](hidden_states)
-        
+
         return hidden_states
 
 
 class OmniGen2AttnProcessor:
     """
     Processor for implementing scaled dot-product attention with flash attention and variable length sequences.
-    
+
     This processor is optimized for PyTorch 2.0 and implements:
     - Flash attention with variable length sequences
     - Rotary position embeddings (RoPE)
     - Query-Key normalization
     - Proportional attention scaling
-    
+
     Args:
         None
-        
+
     Raises:
         ImportError: If PyTorch version is less than 2.0
     """
@@ -339,7 +339,7 @@ class OmniGen2AttnProcessor:
         query = query.transpose(1, 2)
         key = key.transpose(1, 2)
         value = value.transpose(1, 2)
-        
+
         # explicitly repeat key and value to match query length, otherwise using enable_gqa=True results in MATH backend of sdpa in our test of pytorch2.6
         key = key.repeat_interleave(query.size(-3) // key.size(-3), -3)
         value = value.repeat_interleave(query.size(-3) // value.size(-3), -3)
@@ -353,5 +353,5 @@ class OmniGen2AttnProcessor:
         # Apply output projection
         hidden_states = attn.to_out[0](hidden_states)
         hidden_states = attn.to_out[1](hidden_states)
-        
+
         return hidden_states

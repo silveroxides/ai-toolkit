@@ -134,23 +134,23 @@ class ExponentialMovingAverage:
                 # tmp will be a new tensor so we can do in-place
                 tmp.mul_(one_minus_decay)
                 s_param_float.sub_(tmp)
-                
+
                 update_param = False
                 if self.use_feedback:
                     # make feedback 10x decay
                     param_float.add_(tmp * 10)
                     update_param = True
-                
+
                 if self.param_multiplier != 1.0:
                     param_float.mul_(self.param_multiplier)
                     update_param = True
-                
+
                 if s_param.dtype !=  torch.float32:
                     copy_stochastic(s_param, s_param_float)
-                
+
                 if update_param and param.dtype != torch.float32:
                     copy_stochastic(param, param_float)
-                
+
 
     def copy_to(
             self,

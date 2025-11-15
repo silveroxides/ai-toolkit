@@ -1367,7 +1367,7 @@ class FluxWithCFGPipeline(FluxPipeline):
                     joint_attention_kwargs=self.joint_attention_kwargs,
                     return_dict=False,
                 )[0]
-                
+
                 if guidance_scale > 1.00001:
                     # todo combine these
                     noise_pred_uncond = self.transformer(
@@ -1383,7 +1383,7 @@ class FluxWithCFGPipeline(FluxPipeline):
                     )[0]
 
                     noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
-                
+
                 else:
                     noise_pred = noise_pred_text
 
@@ -1429,8 +1429,8 @@ class FluxWithCFGPipeline(FluxPipeline):
             return (image,)
 
         return FluxPipelineOutput(images=image)
-    
-    
+
+
 class FluxAdvancedControlPipeline(FluxControlPipeline):
     def __init__(
         self,
@@ -1447,7 +1447,7 @@ class FluxAdvancedControlPipeline(FluxControlPipeline):
         self.do_inpainting = do_inpainting
         self.num_controls = num_controls
         super().__init__(scheduler, vae, text_encoder, tokenizer, text_encoder_2, tokenizer_2, transformer)
-    
+
     @torch.no_grad()
     def __call__(
         self,
@@ -1601,7 +1601,7 @@ class FluxAdvancedControlPipeline(FluxControlPipeline):
         # 4. Prepare latent variables
         # num_channels_latents = self.transformer.config.in_channels // 8
         num_channels_latents = 128 // 8
-        
+
         # pull mask off control image if there is one it is a pil image
         mask = None
         if control_image is not None and self.do_inpainting and control_image.mode == "RGBA":
@@ -1627,7 +1627,7 @@ class FluxAdvancedControlPipeline(FluxControlPipeline):
             num_control_channels = num_channels_latents
             control_image = self.vae.encode(control_image).latent_dist.sample(generator=generator)
             control_image = (control_image - self.vae.config.shift_factor) * self.vae.config.scaling_factor
-            
+
             if mask is not None:
                 transform = transforms.Compose([
                     transforms.ToTensor(),
@@ -1696,7 +1696,7 @@ class FluxAdvancedControlPipeline(FluxControlPipeline):
             for i, t in enumerate(timesteps):
                 if self.interrupt:
                     continue
-                
+
                 control_image_list = []
                 for idx in range(self.num_controls):
                     if idx == 0 and self.do_inpainting:
@@ -1706,7 +1706,7 @@ class FluxAdvancedControlPipeline(FluxControlPipeline):
                         control_image_list.append(ctrl)
                     else:
                         control_image_list.append(torch.zeros_like(latents))
-                
+
                 control_image_list[control_image_idx] = control_image
 
                 latent_model_input = torch.cat([latents] + control_image_list, dim=2)
@@ -1767,4 +1767,3 @@ class FluxAdvancedControlPipeline(FluxControlPipeline):
 
         return FluxPipelineOutput(images=image)
 
-    

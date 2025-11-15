@@ -396,16 +396,16 @@ def scale_weights_to_8bit(tensor, max_value=416.0, dtype=torch.float8_e4m3fn):
     # Get the limits of the dtype
     min_val = torch.finfo(dtype).min
     max_val = torch.finfo(dtype).max
-    
+
     # Only process 2D tensors that are not in the blacklist
     if tensor.dim() == 2:
         # Calculate the scaling factor
         abs_max = torch.max(torch.abs(tensor))
         scale = abs_max / max_value
-        
+
         # Scale the tensor and clip to float8 range
         scaled_tensor = (tensor / scale).clip(min=min_val, max=max_val).to(dtype)
-        
+
         return scaled_tensor, scale
     else:
         # For tensors that shouldn't be scaled, just convert to float8
@@ -432,10 +432,10 @@ elif do_8bit_scaled:
             min_val = torch.finfo(torch.float8_e4m3fn).min
             max_val = torch.finfo(torch.float8_e4m3fn).max
             flux[key] = flux[key].clip(min=min_val, max=max_val).to(torch.float8_e4m3fn).to('cpu')
-    
+
     # Add all the scales to the flux dictionary
     flux.update(scales)
-    
+
     # Add a marker tensor to indicate this is a scaled fp8 model
     flux["scaled_fp8"] = torch.tensor([]).to(torch.float8_e4m3fn)
 else:

@@ -13,7 +13,7 @@ def total_variation(image):
     n_elements = image.shape[1] * image.shape[2] * image.shape[3]
     return ((torch.sum(torch.abs(image[:, :, :, :-1] - image[:, :, :, 1:])) +
              torch.sum(torch.abs(image[:, :, :-1, :] - image[:, :, 1:, :]))) / n_elements)
-    
+
 def total_variation_deltas(image):
     """
     Compute per-pixel total variation deltas.
@@ -51,7 +51,7 @@ def get_gradient_penalty(critic, real, fake, device):
             print('d_interpolates is nan')
         d_interpolates = critic(interpolates)
         fake = torch.ones(real.size(0), 1, device=device)
-            
+
         if torch.isnan(d_interpolates).any():
             print('fake is nan')
         gradients = torch.autograd.grad(

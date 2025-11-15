@@ -119,10 +119,10 @@ class ExtractableModuleMixin:
         if extract_mode == "existing":
             extract_mode = 'fixed'
             extract_mode_param = self.lora_dim
-            
+
         if isinstance(weight_to_extract, QBytesTensor):
             weight_to_extract = weight_to_extract.dequantize()
-        
+
         weight_to_extract = weight_to_extract.clone().detach().float()
 
         if self.org_module[0].__class__.__name__ in CONV_MODULES:
@@ -226,9 +226,9 @@ class ToolkitModuleMixin:
         network: Network = self.network_ref()
         if not network.is_active:
             return self.org_forward(x, *args, **kwargs)
-        
+
         orig_dtype = x.dtype
-        
+
         if x.dtype != self.lora_down.weight.dtype:
             x = x.to(self.lora_down.weight.dtype)
 
@@ -281,7 +281,7 @@ class ToolkitModuleMixin:
         # if self.__class__.__name__ == "DoRAModule":
         #     # return dora forward
         #     return self.dora_forward(x, *args, **kwargs)
-        
+
         if self.__class__.__name__ == "LokrModule":
             return self._call_forward(x)
 
@@ -507,7 +507,7 @@ class ToolkitNetworkMixin:
                 keymap = new_keymap
 
         return keymap
-    
+
     def get_state_dict(self: Network, extra_state_dict=None, dtype=torch.float16):
         keymap = self.get_keymap()
 
@@ -551,8 +551,8 @@ class ToolkitNetworkMixin:
                 new_save_dict[new_key] = value
 
             save_dict = new_save_dict
-        
-                
+
+
         if self.network_type.lower() == "lokr":
             new_save_dict = {}
             for key, value in save_dict.items():
@@ -562,7 +562,7 @@ class ToolkitNetworkMixin:
                 new_save_dict[new_key] = value
 
             save_dict = new_save_dict
-        
+
         if self.base_model_ref is not None:
             save_dict = self.base_model_ref().convert_lora_weights_before_save(save_dict)
         return save_dict
@@ -574,7 +574,7 @@ class ToolkitNetworkMixin:
             extra_state_dict: Optional[OrderedDict] = None
     ):
         save_dict = self.get_state_dict(extra_state_dict=extra_state_dict, dtype=dtype)
-        
+
         if metadata is not None and len(metadata) == 0:
             metadata = None
 
@@ -582,12 +582,12 @@ class ToolkitNetworkMixin:
             metadata = OrderedDict()
         metadata = add_model_hash_to_meta(save_dict, metadata)
         # let the model handle the saving
-        
+
         if self.base_model_ref is not None and hasattr(self.base_model_ref(), 'save_lora'):
             # call the base model save lora method
             self.base_model_ref().save_lora(save_dict, file, metadata)
             return
-        
+
         if os.path.splitext(file)[1] == ".safetensors":
             from safetensors.torch import save_file
             save_file(save_dict, file, metadata)
@@ -612,7 +612,7 @@ class ToolkitNetworkMixin:
         else:
             # probably a state dict
             weights_sd = file
-        
+
         if self.base_model_ref is not None:
             weights_sd = self.base_model_ref().convert_lora_weights_before_load(weights_sd)
 
@@ -635,7 +635,7 @@ class ToolkitNetworkMixin:
                 load_key = load_key.replace('.', '$$')
                 load_key = load_key.replace('$$lora_down$$', '.lora_down.')
                 load_key = load_key.replace('$$lora_up$$', '.lora_up.')
-            
+
             if self.network_type.lower() == "lokr":
                 # lora_transformer_transformer_blocks_7_attn_to_v.lokr_w1 to lycoris_transformer_blocks_7_attn_to_v.lokr_w1
                 load_key = load_key.replace('lycoris_', 'lora_transformer_')
@@ -714,7 +714,7 @@ class ToolkitNetworkMixin:
             first_module = self.get_all_modules()[0]
         except IndexError:
             raise ValueError("There are not any lora modules in this network. Check your config and try again")
-        
+
         if hasattr(first_module, 'lora_down'):
             device = first_module.lora_down.weight.device
             dtype = first_module.lora_down.weight.dtype

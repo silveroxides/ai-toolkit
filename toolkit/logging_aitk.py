@@ -12,11 +12,11 @@ class EmptyLogger:
     # start logging the training
     def start(self):
         pass
-    
+
     # collect the log to send
     def log(self, *args, **kwargs):
         pass
-    
+
     # send the log
     def commit(self, step: Optional[int] = None):
         pass
@@ -42,7 +42,7 @@ class WandbLogger(EmptyLogger):
             import wandb
         except ImportError:
             raise ImportError("Failed to import wandb. Please install wandb by running `pip install wandb`")
-        
+
         # send the whole config to wandb
         run = wandb.init(project=self.project, name=self.run_name, config=self.config)
         self.run = run

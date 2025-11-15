@@ -116,7 +116,7 @@ class PromptEmbeds:
                 state_dict[f"text_embed_{i}"] = text_embed.cpu()
         else:
             state_dict["text_embed"] = pe.text_embeds.cpu()
-            
+
         if pe.pooled_embeds is not None:
             state_dict["pooled_embed"] = pe.pooled_embeds.cpu()
         if pe.attention_mask is not None:
@@ -127,7 +127,7 @@ class PromptEmbeds:
                 state_dict["attention_mask"] = pe.attention_mask.cpu()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         save_file(state_dict, path)
-    
+
     @classmethod
     def load(cls, path: str) -> 'PromptEmbeds':
         """
@@ -333,7 +333,7 @@ def split_prompt_embeds(concatenated: PromptEmbeds, num_parts=None) -> List[Prom
     if num_parts is None:
         # use batch size
         num_parts = concatenated.text_embeds.shape[0]
-        
+
     if isinstance(concatenated.text_embeds, list) or isinstance(concatenated.text_embeds, tuple):
         # split each part
         text_embeds_splits = [

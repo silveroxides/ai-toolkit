@@ -31,7 +31,7 @@ def is_native_windows():
 
 if TYPE_CHECKING:
     from toolkit.stable_diffusion_model import StableDiffusion
-    
+
 
 image_extensions = ['.jpg', '.jpeg', '.png', '.webp']
 video_extensions = ['.mp4', '.avi', '.mov', '.webm', '.mkv', '.wmv', '.m4v', '.flv']
@@ -432,7 +432,7 @@ class AiToolkitDataset(LatentCachingMixin, ControlCachingMixin, CLIPCachingMixin
                 self.caption_dict = json.load(f)
                 # keys are file paths
                 file_list = list(self.caption_dict.keys())
-                
+
         # remove items in the _controls_ folder
         file_list = [x for x in file_list if not os.path.basename(os.path.dirname(x)) == "_controls"]
 
@@ -466,14 +466,14 @@ class AiToolkitDataset(LatentCachingMixin, ControlCachingMixin, CLIPCachingMixin
         dataset_folder = self.dataset_path
         if not os.path.isdir(self.dataset_path):
             dataset_folder = os.path.dirname(dataset_folder)
-        
+
         dataset_size_file = os.path.join(dataset_folder, '.aitk_size.json')
         dataloader_version = "0.1.2"
         if os.path.exists(dataset_size_file):
             try:
                 with open(dataset_size_file, 'r') as f:
                     self.size_database = json.load(f)
-                
+
                 if "__version__" not in self.size_database or self.size_database["__version__"] != dataloader_version:
                     print_acc("Upgrading size database to new version")
                     # old version, delete and recreate
@@ -484,7 +484,7 @@ class AiToolkitDataset(LatentCachingMixin, ControlCachingMixin, CLIPCachingMixin
                 self.size_database = {}
         else:
             self.size_database = {}
-        
+
         self.size_database["__version__"] = dataloader_version
 
         bad_count = 0
@@ -512,7 +512,7 @@ class AiToolkitDataset(LatentCachingMixin, ControlCachingMixin, CLIPCachingMixin
         # save the size database
         with open(dataset_size_file, 'w') as f:
             json.dump(self.size_database, f)
-        
+
         if self.is_video:
             print_acc(f"  -  Found {len(self.file_list)} videos")
             assert len(self.file_list) > 0, f"no videos found in {self.dataset_path}"
@@ -647,7 +647,7 @@ def get_dataloader_from_datasets(
     # check if is caching latents
 
     dataloader_kwargs = {}
-    
+
     if is_native_windows():
         dataloader_kwargs['num_workers'] = 0
     else:

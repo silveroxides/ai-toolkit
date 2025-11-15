@@ -69,7 +69,7 @@ class LoRAModule(ToolkitModuleMixin, ExtractableModuleMixin, torch.nn.Module):
         self.lora_name = lora_name
         self.orig_module_ref = weakref.ref(org_module)
         self.scalar = torch.tensor(1.0, device=org_module.weight.device)
-        
+
         # if is ara lora module, mark it on the layer so memory manager can handle it
         if is_ara:
             org_module.ara_lora_ref = weakref.ref(self)
@@ -264,7 +264,7 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
 
         self.peft_format = peft_format
         self.is_transformer = is_transformer
-        
+
 
         # always do peft for flux only for now
         if self.is_flux or self.is_v3 or self.is_lumina2 or is_transformer:
@@ -356,12 +356,12 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
                         # see if it is over threshold
                         if count_parameters(child_module) < parameter_threshold:
                             skip = True
-                        
+
                         if self.transformer_only and is_unet:
                             transformer_block_names = None
                             if base_model is not None:
                                 transformer_block_names = base_model.get_transformer_block_names()
-                            
+
                             if transformer_block_names is not None:
                                 if not any([name in lora_name for name in transformer_block_names]):
                                     skip = True
@@ -378,16 +378,16 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
                                 if  self.is_v3:
                                     if "transformer_blocks" not in lora_name:
                                         skip = True
-                                
+
                                 # handle custom models
                                 if hasattr(root_module, 'transformer_blocks'):
                                     if "transformer_blocks" not in lora_name:
                                         skip = True
-                                        
+
                                 if hasattr(root_module, 'blocks'):
                                     if "blocks" not in lora_name:
                                         skip = True
-                                
+
                                 if hasattr(root_module, 'single_blocks'):
                                     if "single_blocks" not in lora_name and "double_blocks" not in lora_name:
                                         skip = True
@@ -421,12 +421,12 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
                                         self.conv_lora_dim is not None or conv_block_dims is not None):
                                     skipped.append(lora_name)
                                 continue
-                            
+
                             module_kwargs = {}
-                            
+
                             if self.network_type.lower() == "lokr":
                                 module_kwargs["factor"] = self.network_config.lokr_factor
-                            
+
                             if self.is_ara:
                                 module_kwargs["is_ara"] = True
 
@@ -502,7 +502,7 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
 
         if is_flux:
             target_modules = ["FluxTransformer2DModel"]
-        
+
         if is_lumina2:
             target_modules = ["Lumina2Transformer2DModel"]
 
@@ -550,7 +550,7 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
 
                 transformer.pos_embed = self.transformer_pos_embed
                 transformer.proj_out = self.transformer_proj_out
-            
+
             elif base_model is not None and base_model.arch == "wan21":
                 transformer: WanTransformer3DModel = unet
                 self.transformer_pos_embed = copy.deepcopy(transformer.patch_embedding)

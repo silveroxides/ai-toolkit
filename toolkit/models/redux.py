@@ -21,6 +21,6 @@ class ReduxImageEncoder(torch.nn.Module):
     def forward(self, sigclip_embeds) -> torch.Tensor:
         x = self.redux_up(sigclip_embeds)
         x = torch.nn.functional.silu(x)
-        
+
         projected_x = self.redux_down(x)
         return projected_x

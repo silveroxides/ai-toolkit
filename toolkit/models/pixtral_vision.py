@@ -462,7 +462,7 @@ class PixtralVisionImagePreprocessor:
     def _image_to_num_tokens(self, img: torch.Tensor, max_image_size = None) -> Tuple[int, int]:
         w: Union[int, float]
         h: Union[int, float]
-        
+
         if max_image_size is None:
             max_image_size = self.max_image_size
 
@@ -471,7 +471,7 @@ class PixtralVisionImagePreprocessor:
         # originally, pixtral used the largest of the 2 dimensions, but we
         # will use the base size of the image based on number of pixels.
         # ratio = max(h / self.max_image_size, w / self.max_image_size)  # original
-        
+
         base_size = int(math.sqrt(w * h))
         ratio = base_size / max_image_size
         if ratio > 1:
@@ -501,7 +501,7 @@ class PixtralVisionImagePreprocessor:
         if image.min() < 0.0 or image.max() > 1.0:
             raise ValueError(
                 f"image tensor values must be between 0 and 1. Got min: {image.min()}, max: {image.max()}")
-        
+
         if max_image_size is None:
             max_image_size = self.max_image_size
 
