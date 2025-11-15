@@ -1,8 +1,7 @@
----
 job: extension
 config:
   # this name will be the folder and filename name
-  name: "my_first_chroma_lora_v1"
+  name: "my_chroma_lora"
   process:
     - type: 'sd_trainer'
       # root folder to save training sessions/samples/weights
@@ -12,14 +11,39 @@ config:
       device: cuda:0
       # if a trigger word is specified, it will be added to captions of training data if it does not already exist
       # alternatively, in your captions you can add [trigger] and it will be replaced with the trigger word
-#      trigger_word: "p3r5on"
+#      trigger_word: "sakimod"
       network:
         type: "lora"
-        linear: 16
-        linear_alpha: 16
+        linear: 32 # same thing as rank in this context
+        linear_alpha: 32 # Not actuallly used in chroma, defaults to rank
+        ramp_double_blocks: true
+        ramp_target_lr: 1.5e-6       # final LR you want for the mapped blocks
+        ramp_warmup_steps: 1000      # number of optimisation steps for the climb
+        ramp_type: linear            # or "cosine"
+        network_kwargs:
+            lr_if_contains:
+              double_blocks$$0$$: 0.001
+              double_blocks$$1$$: 0.00289
+              double_blocks$$2$$: 0.00456
+              double_blocks$$3$$: 0.006
+              double_blocks$$4$$: 0.00722
+              double_blocks$$5$$: 0.00822
+              double_blocks$$6$$: 0.009
+              double_blocks$$7$$: 0.00956
+              double_blocks$$8$$: 0.00989
+              double_blocks$$9$$: 0.01
+              double_blocks$$10$$: 0.00989
+              double_blocks$$11$$: 0.00956
+              double_blocks$$12$$: 0.009
+              double_blocks$$13$$: 0.00822
+              double_blocks$$14$$: 0.00722
+              double_blocks$$15$$: 0.006
+              double_blocks$$16$$: 0.00456
+              double_blocks$$17$$: 0.00289
+              double_blocks$$18$$: 0.0013
       save:
         dtype: float16 # precision to save
-        save_every: 250 # save every this many steps
+        save_every: 100 # save every this many steps
         max_step_saves_to_keep: 4 # how many intermittent saves to keep
         push_to_hub: false #change this to True to push your trained model to Hugging Face.
         # You can either set up a HF_TOKEN env variable or you'll be prompted to log-in         
@@ -31,32 +55,38 @@ config:
         # images will automatically be resized and bucketed into the resolution specified
         # on windows, escape back slashes with another backslash so
         # "C:\\path\\to\\images\\folder"
-        - folder_path: "/path/to/images/folder"
+        - folder_path: "/home/someone/A"
           caption_ext: "txt"
-          caption_dropout_rate: 0.05  # will drop out the caption 5% of time
-          shuffle_tokens: false  # shuffle caption order, split by commas
           cache_latents_to_disk: true  # leave this true unless you know what you're doing
-          resolution: [ 512, 768, 1024 ]  # chroma enjoys multiple resolutions
+          resolution: 512
+        - folder_path: "/home/someone/B"
+          caption_ext: "txt"
+          cache_latents_to_disk: true  # leave this true unless you know what you're doing
+          resolution: 512
+          
       train:
-        batch_size: 1
-        steps: 2000  # total number of steps to train 500 - 4000 is a good range
+        batch_size: 4
+        steps: 20000  # total number of steps to train 500 - 4000 is a good range
         gradient_accumulation: 1
         train_unet: true
         train_text_encoder: false  # probably won't work with chroma
-        gradient_checkpointing: true  # need the on unless you have a ton of vram
+        gradient_checkpointing: false # Not implemented for chroma yet
         noise_scheduler: "flowmatch" # for training only
-        optimizer: "adamw8bit"
+        timestep_type: 'sigmoid'  # 'linear', 'sigmoid', 'shift'
+        optimizer: "radamschedulefree"
+        optimizer_args:
+            weight_decay: 1e-4
+            betas: [0.9, 0.99]
         lr: 1e-4
         # uncomment this to skip the pre training sample
-#        skip_first_sample: true
+        skip_first_sample: true
         # uncomment to completely disable sampling
-#        disable_sampling: true
-        # uncomment to use new vell curved weighting. Experimental but may produce better results
-#        linear_timesteps: true
+#       disable_sampling: false
+        linear_timesteps: false
 
         # ema will smooth out learning, but could slow it down. Recommended to leave on.
         ema_config:
-          use_ema: true
+          use_ema: false # Don't use ema with schedule fee optimizer, it's already built in
           ema_decay: 0.99
 
         # will probably need this if gpu supports it for chroma, other dtypes may not work correctly
@@ -65,34 +95,16 @@ config:
         # Download the whichever model you prefer from the Chroma repo
         # https://huggingface.co/lodestones/Chroma/tree/main
         # point to it here.
-        # name_or_path: "/path/to/chroma/chroma-unlocked-vVERSION.safetensors"
-
-        # using lodestones/Chroma will automatically use the latest version
-        name_or_path: "lodestones/Chroma"
-
-        # # You can also select a version of Chroma like so
-        # name_or_path: "lodestones/Chroma/v28"
-        
+        name_or_path: "/home/someone/chroma/chroma-unlocked-v31.safetensors"
         arch: "chroma"
-        quantize: true  # run 8bit mixed precision
+        quantize: true  # run base model in8bit mixed precision
       sample:
         sampler: "flowmatch" # must match train.noise_scheduler
-        sample_every: 250 # sample every this many steps
-        width: 1024
-        height: 1024
+        sample_every: 100 # sample every this many steps
+        width: 832
+        height: 1216
         prompts:
-          # you can add [trigger] to the prompts here and it will be replaced with the trigger word
-#          - "[trigger] holding a sign that says 'I LOVE PROMPTS!'"\
-          - "woman with red hair, playing chess at the park, bomb going off in the background"
-          - "a woman holding a coffee cup, in a beanie, sitting at a cafe"
-          - "a horse is a DJ at a night club, fish eye lens, smoke machine, lazer lights, holding a martini"
-          - "a man showing off his cool new t shirt at the beach, a shark is jumping out of the water in the background"
-          - "a bear building a log cabin in the snow covered mountains"
-          - "woman playing the guitar, on stage, singing a song, laser lights, punk rocker"
-          - "hipster man with a beard, building a chair, in a wood shop"
-          - "photo of a man, white background, medium shot, modeling clothing, studio lighting, white backdrop"
-          - "a man holding a sign that says, 'this is a sign'"
-          - "a bulldog, in a post apocalyptic world, with a shotgun, in a leather jacket, in a desert, with a motorcycle"
+          - A man drinking a beer in a pub.
         neg: ""  # negative prompt, optional
         seed: 42
         walk_seed: true
