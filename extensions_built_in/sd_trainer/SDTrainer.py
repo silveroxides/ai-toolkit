@@ -1675,12 +1675,7 @@ class SDTrainer(BaseSDTrainProcess):
                         h = noisy_latents.shape[2]
                         w = noisy_latents.shape[3]
                     mask_multiplier = torch.nn.functional.interpolate(
-<<<<<<< HEAD
-                        mask_multiplier,
-                        size=(noisy_latents.shape[2], noisy_latents.shape[3]),
-=======
                         mask_multiplier, size=(h, w)
->>>>>>> main
                     )
                     # expand to match latents
                     mask_multiplier = mask_multiplier.expand(
@@ -1882,23 +1877,17 @@ class SDTrainer(BaseSDTrainProcess):
                         prompt_kwargs['control_images'] = batch.control_tensor.to(self.sd.device_torch, dtype=self.sd.torch_dtype)
                     if self.train_config.unload_text_encoder or self.is_caching_text_embeddings:
                         with torch.set_grad_enabled(False):
-<<<<<<< HEAD
-                            embeds_to_use = (
-                                self.cached_blank_embeds.clone()
-                                .detach()
-                                .to(self.device_torch, dtype=dtype)
+                            embeds_to_use = self.cached_blank_embeds.clone().detach().to(
+                                self.device_torch, dtype=dtype
                             )
                             if self.cached_trigger_embeds is not None and not is_reg:
-                                embeds_to_use = (
-                                    self.cached_trigger_embeds.clone()
-                                    .detach()
-                                    .to(self.device_torch, dtype=dtype)
-=======
+                                embeds_to_use = self.cached_trigger_embeds.clone().detach().to(
+                                    self.device_torch, dtype=dtype
+                                )
                             if batch.prompt_embeds is not None:
                                 # use the cached embeds
                                 conditional_embeds = batch.prompt_embeds.clone().detach().to(
                                     self.device_torch, dtype=dtype
->>>>>>> main
                                 )
                             else:
                                 embeds_to_use = self.cached_blank_embeds.clone().detach().to(
@@ -1907,20 +1896,17 @@ class SDTrainer(BaseSDTrainProcess):
                                 if self.cached_trigger_embeds is not None and not is_reg:
                                     embeds_to_use = self.cached_trigger_embeds.clone().detach().to(
                                         self.device_torch, dtype=dtype
-                                    )
+                                 )
                                 conditional_embeds = concat_prompt_embeds(
                                     [embeds_to_use] * noisy_latents.shape[0]
                                 )
                             if self.train_config.do_cfg:
-                                unconditional_embeds = (
-                                    self.cached_blank_embeds.clone()
-                                    .detach()
-                                    .to(self.device_torch, dtype=dtype)
+                                unconditional_embeds = self.cached_blank_embeds.clone().detach().to(
+                                    self.device_torch, dtype=dtype
                                 )
                                 unconditional_embeds = concat_prompt_embeds(
                                     [unconditional_embeds] * noisy_latents.shape[0]
                                 )
-
                             if isinstance(self.adapter, CustomAdapter):
                                 self.adapter.is_unconditional_run = False
 
@@ -1933,14 +1919,8 @@ class SDTrainer(BaseSDTrainProcess):
                                 prompt_2,
                                 dropout_prob=self.train_config.prompt_dropout_prob,
                                 long_prompts=self.do_long_prompts,
-<<<<<<< HEAD
-                            ).to(self.device_torch, dtype=dtype)
-=======
                                 **prompt_kwargs
-                            ).to(
-                                self.device_torch,
-                                dtype=dtype)
->>>>>>> main
+                            ).to(self.device_torch, dtype=dtype)
 
                             if self.train_config.do_cfg:
                                 if isinstance(self.adapter, CustomAdapter):
@@ -1951,14 +1931,8 @@ class SDTrainer(BaseSDTrainProcess):
                                     self.batch_negative_prompt,
                                     dropout_prob=self.train_config.prompt_dropout_prob,
                                     long_prompts=self.do_long_prompts,
-<<<<<<< HEAD
-                                ).to(self.device_torch, dtype=dtype)
-=======
                                     **prompt_kwargs
-                                ).to(
-                                    self.device_torch,
-                                    dtype=dtype)
->>>>>>> main
+                                ).to(self.device_torch, dtype=dtype)
                                 if isinstance(self.adapter, CustomAdapter):
                                     self.adapter.is_unconditional_run = False
                     else:
@@ -2467,88 +2441,11 @@ class SDTrainer(BaseSDTrainProcess):
                         prior_pred=prior_pred,
                     )
                 else:
-<<<<<<< HEAD
-                    if unconditional_embeds is not None:
-                        unconditional_embeds = unconditional_embeds.to(
-                            self.device_torch, dtype=dtype
-                        ).detach()
-                    with self.timer("condition_noisy_latents"):
-                        # do it for the model
-                        noisy_latents = self.sd.condition_noisy_latents(
-                            noisy_latents, batch
-                        )
-                        if self.adapter and isinstance(self.adapter, CustomAdapter):
-                            noisy_latents = self.adapter.condition_noisy_latents(
-                                noisy_latents, batch
-                            )
-
-                    if self.train_config.timestep_type == "next_sample":
-                        with self.timer("next_sample_step"):
-                            with torch.no_grad():
-                                stepped_timestep_indicies = [
-                                    self.sd.noise_scheduler.index_for_timestep(t) + 1
-                                    for t in timesteps
-                                ]
-                                stepped_timesteps = [
-                                    self.sd.noise_scheduler.timesteps[x]
-                                    for x in stepped_timestep_indicies
-                                ]
-                                stepped_timesteps = torch.stack(
-                                    stepped_timesteps, dim=0
-                                )
-
-                                # do a sample at the current timestep and step it, then determine new noise
-                                next_sample_pred = self.predict_noise(
-                                    noisy_latents=noisy_latents.to(
-                                        self.device_torch, dtype=dtype
-                                    ),
-                                    timesteps=timesteps,
-                                    conditional_embeds=conditional_embeds.to(
-                                        self.device_torch, dtype=dtype
-                                    ),
-                                    unconditional_embeds=unconditional_embeds,
-                                    batch=batch,
-                                    **pred_kwargs,
-                                )
-                                stepped_latents = self.sd.step_scheduler(
-                                    next_sample_pred,
-                                    noisy_latents,
-                                    timesteps,
-                                    self.sd.noise_scheduler,
-                                )
-                                # stepped latents is our new noisy latents. Now we need to determine noise in the current sample
-                                noisy_latents = stepped_latents
-                                original_samples = batch.latents.to(
-                                    self.device_torch, dtype=dtype
-                                )
-                                # todo calc next timestep, for now this may work as it
-                                t_01 = (stepped_timesteps / 1000).to(
-                                    original_samples.device
-                                )
-                                if len(stepped_latents.shape) == 4:
-                                    t_01 = t_01.view(-1, 1, 1, 1)
-                                elif len(stepped_latents.shape) == 5:
-                                    t_01 = t_01.view(-1, 1, 1, 1, 1)
-                                else:
-                                    raise ValueError(
-                                        "Unknown stepped latents shape",
-                                        stepped_latents.shape,
-                                    )
-                                next_sample_noise = (
-                                    stepped_latents - (1.0 - t_01) * original_samples
-                                ) / t_01
-                                noise = next_sample_noise
-                                timesteps = stepped_timesteps
-
                     with self.timer("predict_unet"):
                         noise_pred = self.predict_noise(
-                            noisy_latents=noisy_latents.to(
-                                self.device_torch, dtype=dtype
-                            ),
+                            noisy_latents=noisy_latents.to(self.device_torch, dtype=dtype),
                             timesteps=timesteps,
-                            conditional_embeds=conditional_embeds.to(
-                                self.device_torch, dtype=dtype
-                            ),
+                            conditional_embeds=conditional_embeds.to(self.device_torch, dtype=dtype),
                             unconditional_embeds=unconditional_embeds,
                             batch=batch,
                             is_primary_pred=True,
@@ -2561,11 +2458,8 @@ class SDTrainer(BaseSDTrainProcess):
                         prior_to_calculate_loss = prior_pred
                         # if we are doing diff_output_preservation and not noing inverted masked prior
                         # then we need to send none here so it will not target the prior
-<<<<<<< HEAD
-                        if (
-                            self.train_config.diff_output_preservation
-                            and not do_inverted_masked_prior
-                        ):
+                        doing_preservation = self.train_config.diff_output_preservation or self.train_config.blank_prompt_preservation
+                        if doing_preservation and not do_inverted_masked_prior:
                             prior_to_calculate_loss = None
 
                         if self.train_config.loss_type == "cfm":
@@ -2588,43 +2482,16 @@ class SDTrainer(BaseSDTrainProcess):
                                 prior_pred=prior_to_calculate_loss,
                             )
 
-                    if self.train_config.diff_output_preservation:
-                        # send the loss backwards otherwise checkpointing will fail
-                        self.accelerator.backward(loss)
-                        normal_loss = loss.detach()  # dont send backward again
-
-                        dop_embeds = (
-                            self.diff_output_preservation_embeds.expand_to_batch(
-                                noisy_latents.shape[0]
-                            )
-                        )
-                        dop_pred = self.predict_noise(
-                            noisy_latents=noisy_latents.to(
-                                self.device_torch, dtype=dtype
-                            ),
-                            timesteps=timesteps,
-                            conditional_embeds=dop_embeds.to(
-                                self.device_torch, dtype=dtype
-                            ),
-=======
-                        doing_preservation = self.train_config.diff_output_preservation or self.train_config.blank_prompt_preservation
-                        if doing_preservation and not do_inverted_masked_prior:
-                            prior_to_calculate_loss = None
-
-                        loss = self.calculate_loss(
-                            noise_pred=noise_pred,
-                            noise=noise,
-                            noisy_latents=noisy_latents,
-                            timesteps=timesteps,
-                            batch=batch,
-                            mask_multiplier=mask_multiplier,
-                            prior_pred=prior_to_calculate_loss,
-                        )
-
                     if self.train_config.diff_output_preservation or self.train_config.blank_prompt_preservation:
                         # send the loss backwards otherwise checkpointing will fail
                         self.accelerator.backward(loss)
                         normal_loss = loss.detach() # dont send backward again
+
+                        dop_embeds = self.diff_output_preservation_embeds.expand_to_batch(noisy_latents.shape[0])
+                        dop_pred = self.predict_noise(
+                            noisy_latents=noisy_latents.to(self.device_torch, dtype=dtype),
+                            timesteps=timesteps,
+                            conditional_embeds=dop_embeds.to(self.device_torch, dtype=dtype),
 
                         with torch.no_grad():
                             if self.train_config.diff_output_preservation:
@@ -2640,26 +2507,15 @@ class SDTrainer(BaseSDTrainProcess):
                             noisy_latents=noisy_latents.to(self.device_torch, dtype=dtype),
                             timesteps=timesteps,
                             conditional_embeds=preservation_embeds.to(self.device_torch, dtype=dtype),
->>>>>>> main
                             unconditional_embeds=unconditional_embeds,
                             batch=batch,
                             **pred_kwargs,
                         )
-                        dop_loss = (
-                            torch.nn.functional.mse_loss(dop_pred, prior_pred)
-                            * self.train_config.diff_output_preservation_multiplier
-                        )
-<<<<<<< HEAD
-                        self.accelerator.backward(dop_loss)
-
-                        loss = normal_loss + dop_loss
-=======
                         multiplier = self.train_config.diff_output_preservation_multiplier if self.train_config.diff_output_preservation else self.train_config.blank_prompt_preservation_multiplier
                         preservation_loss = torch.nn.functional.mse_loss(preservation_pred, prior_pred) * multiplier
                         self.accelerator.backward(preservation_loss)
 
                         loss = normal_loss + preservation_loss
->>>>>>> main
                         loss = loss.clone().detach()
                         # require grad again so the backward wont fail
                         loss.requires_grad_(True)
@@ -2756,13 +2612,7 @@ class SDTrainer(BaseSDTrainProcess):
                 # Let's make sure we don't update any embedding weights besides the newly added token
                 self.adapter.restore_embeddings()
 
-<<<<<<< HEAD
-        loss_dict = OrderedDict({"loss": loss.item()})
-=======
-        loss_dict = OrderedDict(
-            {'loss': (total_loss / len(batch_list)).item()}
-        )
->>>>>>> main
+        loss_dict = OrderedDict({'loss': (total_loss / len(batch_list)).item()})
 
         self.end_of_training_loop()
 
