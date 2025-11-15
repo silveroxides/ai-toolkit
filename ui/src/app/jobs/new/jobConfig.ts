@@ -1,4 +1,4 @@
-import { JobConfig, DatasetConfig } from '@/types';
+import { JobConfig, DatasetConfig, SliderConfig } from '@/types';
 
 export const defaultDatasetConfig: DatasetConfig = {
   folder_path: '/path/to/images/folder',
@@ -11,7 +11,21 @@ export const defaultDatasetConfig: DatasetConfig = {
   is_reg: false,
   network_weight: 1,
   resolution: [512, 768, 1024],
-  controls: []
+  controls: [],
+  shrink_video_to_frames: true,
+  num_frames: 1,
+  do_i2v: true,
+  flip_x: false,
+  flip_y: false,
+};
+
+export const defaultSliderConfig: SliderConfig = {
+  guidance_strength: 3.0,
+  anchor_strength: 1.0,
+  positive_prompt: 'person who is happy',
+  negative_prompt: 'person who is sad',
+  target_class: 'person',
+  anchor_class: '',
 };
 
 export const defaultJobConfig: JobConfig = {
@@ -20,7 +34,7 @@ export const defaultJobConfig: JobConfig = {
     name: 'my_first_lora_v1',
     process: [
       {
-        type: 'ui_trainer',
+        type: 'diffusion_trainer',
         training_folder: 'output',
         sqlite_db_path: './aitk_db.db',
         device: 'cuda',
@@ -30,6 +44,8 @@ export const defaultJobConfig: JobConfig = {
           type: 'lora',
           linear: 32,
           linear_alpha: 32,
+          conv: 16,
+          conv_alpha: 16,
           lokr_full_rank: true,
           lokr_factor: -1,
           network_kwargs: {
@@ -60,20 +76,28 @@ export const defaultJobConfig: JobConfig = {
             weight_decay: 1e-4,
           },
           unload_text_encoder: false,
+          cache_text_embeddings: false,
           lr: 0.0001,
           ema_config: {
             use_ema: false,
             ema_decay: 0.99,
           },
+          skip_first_sample: false,
+          force_first_sample: false,
+          disable_sampling: false,
           dtype: 'bf16',
           diff_output_preservation: false,
           diff_output_preservation_multiplier: 1.0,
           diff_output_preservation_class: 'person',
+          switch_boundary_every: 1,
+          loss_type: 'mse',
         },
         model: {
           name_or_path: 'ostris/Flex.1-alpha',
           quantize: true,
+          qtype: 'qfloat8',
           quantize_te: true,
+          qtype_te: 'qfloat8',
           arch: 'flex1',
           low_vram: false,
           model_kwargs: {},
@@ -83,17 +107,40 @@ export const defaultJobConfig: JobConfig = {
           sample_every: 250,
           width: 1024,
           height: 1024,
-          prompts: [
-            'woman with red hair, playing chess at the park, bomb going off in the background',
-            'a woman holding a coffee cup, in a beanie, sitting at a cafe',
-            'a horse is a DJ at a night club, fish eye lens, smoke machine, lazer lights, holding a martini',
-            'a man showing off his cool new t shirt at the beach, a shark is jumping out of the water in the background',
-            'a bear building a log cabin in the snow covered mountains',
-            'woman playing the guitar, on stage, singing a song, laser lights, punk rocker',
-            'hipster man with a beard, building a chair, in a wood shop',
-            'photo of a man, white background, medium shot, modeling clothing, studio lighting, white backdrop',
-            "a man holding a sign that says, 'this is a sign'",
-            'a bulldog, in a post apocalyptic world, with a shotgun, in a leather jacket, in a desert, with a motorcycle',
+          samples: [
+            {
+              prompt: 'woman with red hair, playing chess at the park, bomb going off in the background',
+            },
+            {
+              prompt: 'a woman holding a coffee cup, in a beanie, sitting at a cafe',
+            },
+            {
+              prompt: 'a horse is a DJ at a night club, fish eye lens, smoke machine, lazer lights, holding a martini',
+            },
+            {
+              prompt:
+                'a man showing off his cool new t shirt at the beach, a shark is jumping out of the water in the background',
+            },
+            {
+              prompt: 'a bear building a log cabin in the snow covered mountains',
+            },
+            {
+              prompt: 'woman playing the guitar, on stage, singing a song, laser lights, punk rocker',
+            },
+            {
+              prompt: 'hipster man with a beard, building a chair, in a wood shop',
+            },
+            {
+              prompt:
+                'photo of a man, white background, medium shot, modeling clothing, studio lighting, white backdrop',
+            },
+            {
+              prompt: "a man holding a sign that says, 'this is a sign'",
+            },
+            {
+              prompt:
+                'a bulldog, in a post apocalyptic world, with a shotgun, in a leather jacket, in a desert, with a motorcycle',
+            },
           ],
           neg: '',
           seed: 42,
@@ -110,4 +157,35 @@ export const defaultJobConfig: JobConfig = {
     name: '[name]',
     version: '1.0',
   },
+};
+
+export const migrateJobConfig = (jobConfig: JobConfig): JobConfig => {
+  // upgrade prompt strings to samples
+  if (
+    jobConfig?.config?.process &&
+    jobConfig.config.process[0]?.sample &&
+    Array.isArray(jobConfig.config.process[0].sample.prompts) &&
+    jobConfig.config.process[0].sample.prompts.length > 0
+  ) {
+    let newSamples = [];
+    for (const prompt of jobConfig.config.process[0].sample.prompts) {
+      newSamples.push({
+        prompt: prompt,
+      });
+    }
+    jobConfig.config.process[0].sample.samples = newSamples;
+    delete jobConfig.config.process[0].sample.prompts;
+  }
+
+  // upgrade job from ui_trainer to diffusion_trainer
+  if (jobConfig?.config?.process && jobConfig.config.process[0]?.type === 'ui_trainer') {
+    jobConfig.config.process[0].type = 'diffusion_trainer';
+  }
+
+  if ('auto_memory' in jobConfig.config.process[0].model) {
+    jobConfig.config.process[0].model.layer_offloading = (jobConfig.config.process[0].model.auto_memory ||
+      false) as boolean;
+    delete jobConfig.config.process[0].model.auto_memory;
+  }
+  return jobConfig;
 };

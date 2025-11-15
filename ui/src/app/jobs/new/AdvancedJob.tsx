@@ -5,6 +5,7 @@ import YAML from 'yaml';
 import Editor, { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Settings } from '@/hooks/useSettings';
+import { migrateJobConfig } from './jobConfig';
 
 type Props = {
   jobConfig: JobConfig;
@@ -107,7 +108,7 @@ export default function AdvancedJob({ jobConfig, setJobConfig, settings }: Props
 
         // We have to ensure certain things are always set
         try {
-          parsed.config.process[0].type = 'ui_trainer';
+          // parsed.config.process[0].type = 'ui_trainer';
           parsed.config.process[0].sqlite_db_path = './aitk_db.db';
           parsed.config.process[0].training_folder = settings.TRAINING_FOLDER;
           parsed.config.process[0].device = 'cuda';
@@ -115,6 +116,7 @@ export default function AdvancedJob({ jobConfig, setJobConfig, settings }: Props
         } catch (e) {
           console.warn(e);
         }
+        migrateJobConfig(parsed);
         setJobConfig(parsed);
       }
     } catch (e) {

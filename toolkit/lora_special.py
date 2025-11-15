@@ -7,7 +7,7 @@ import re
 import sys
 from typing import List, Optional, Dict, Type, Union
 import torch
-from diffusers import UNet2DConditionModel, PixArtTransformer2DModel, AuraFlowTransformer2DModel
+from diffusers import UNet2DConditionModel, PixArtTransformer2DModel, AuraFlowTransformer2DModel, WanTransformer3DModel
 from transformers import CLIPTextModel
 from toolkit.models.lokr import LokrModule
 
@@ -38,6 +38,10 @@ CONV_MODULES = [
     'QConv2d',
 ]
 
+class IdentityModule(torch.nn.Module):
+    def forward(self, x):
+        return x
+
 class LoRAModule(ToolkitModuleMixin, ExtractableModuleMixin, torch.nn.Module):
     """
     replaces forward method of the original Linear, instead of replacing the original Linear module.
@@ -55,6 +59,7 @@ class LoRAModule(ToolkitModuleMixin, ExtractableModuleMixin, torch.nn.Module):
             module_dropout=None,
             network: 'LoRASpecialNetwork' = None,
             use_bias: bool = False,
+            is_ara: bool = False,
             **kwargs
     ):
         self.can_merge_in = True
@@ -64,6 +69,10 @@ class LoRAModule(ToolkitModuleMixin, ExtractableModuleMixin, torch.nn.Module):
         self.lora_name = lora_name
         self.orig_module_ref = weakref.ref(org_module)
         self.scalar = torch.tensor(1.0, device=org_module.weight.device)
+        
+        # if is ara lora module, mark it on the layer so memory manager can handle it
+        if is_ara:
+            org_module.ara_lora_ref = weakref.ref(self)
         # check if parent has bias. if not force use_bias to False
         if org_module.bias is None:
             use_bias = False
@@ -81,16 +90,25 @@ class LoRAModule(ToolkitModuleMixin, ExtractableModuleMixin, torch.nn.Module):
         #     print(f"{lora_name} dim (rank) is changed to: {self.lora_dim}")
         # else:
         self.lora_dim = lora_dim
+        self.full_rank = network.network_type.lower() == "fullrank"
 
         if org_module.__class__.__name__ in CONV_MODULES:
             kernel_size = org_module.kernel_size
             stride = org_module.stride
             padding = org_module.padding
-            self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
-            self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=use_bias)
+            if self.full_rank:
+                self.lora_down = torch.nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False)
+                self.lora_up = IdentityModule()
+            else:
+                self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
+                self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=use_bias)
         else:
-            self.lora_down = torch.nn.Linear(in_dim, self.lora_dim, bias=False)
-            self.lora_up = torch.nn.Linear(self.lora_dim, out_dim, bias=use_bias)
+            if self.full_rank:
+                self.lora_down = torch.nn.Linear(in_dim, out_dim, bias=False)
+                self.lora_up = IdentityModule()
+            else:
+                self.lora_down = torch.nn.Linear(in_dim, self.lora_dim, bias=False)
+                self.lora_up = torch.nn.Linear(self.lora_dim, out_dim, bias=use_bias)
 
         if type(alpha) == torch.Tensor:
             alpha = alpha.detach().float().numpy()  # without casting, bf16 causes error
@@ -100,7 +118,8 @@ class LoRAModule(ToolkitModuleMixin, ExtractableModuleMixin, torch.nn.Module):
 
         # same as microsoft's
         torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
-        torch.nn.init.zeros_(self.lora_up.weight)
+        if not self.full_rank:
+            torch.nn.init.zeros_(self.lora_up.weight)
 
         self.multiplier: Union[float, List[float]] = multiplier
         # wrap the original module so it doesn't get weights updated
@@ -179,6 +198,7 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
             is_assistant_adapter: bool = False,
             is_transformer: bool = False,
             base_model: 'StableDiffusion' = None,
+            is_ara: bool = False,
             **kwargs
     ) -> None:
         """
@@ -232,6 +252,8 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
         self.is_lumina2 = is_lumina2
         self.network_type = network_type
         self.is_assistant_adapter = is_assistant_adapter
+        self.full_rank = network_type.lower() == "fullrank"
+        self.is_ara = is_ara
         if self.network_type.lower() == "dora":
             self.module_class = DoRAModule
             module_class = DoRAModule
@@ -404,6 +426,9 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
                             
                             if self.network_type.lower() == "lokr":
                                 module_kwargs["factor"] = self.network_config.lokr_factor
+                            
+                            if self.is_ara:
+                                module_kwargs["is_ara"] = True
 
                             lora = module_class(
                                 lora_name,
@@ -426,7 +451,10 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
                                 except:
                                     pass
                             else:
-                                lora_shape_dict[lora_name] = [list(lora.lora_down.weight.shape), list(lora.lora_up.weight.shape)]
+                                if self.full_rank:
+                                    lora_shape_dict[lora_name] = [list(lora.lora_down.weight.shape)]
+                                else:
+                                    lora_shape_dict[lora_name] = [list(lora.lora_down.weight.shape), list(lora.lora_up.weight.shape)]
             return loras, skipped
 
         text_encoders = text_encoder if type(text_encoder) == list else [text_encoder]
@@ -522,6 +550,14 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
 
                 transformer.pos_embed = self.transformer_pos_embed
                 transformer.proj_out = self.transformer_proj_out
+            
+            elif base_model is not None and base_model.arch == "wan21":
+                transformer: WanTransformer3DModel = unet
+                self.transformer_pos_embed = copy.deepcopy(transformer.patch_embedding)
+                self.transformer_proj_out = copy.deepcopy(transformer.proj_out)
+
+                transformer.patch_embedding = self.transformer_pos_embed
+                transformer.proj_out = self.transformer_proj_out
 
             else:
                 unet: UNet2DConditionModel = unet
@@ -539,7 +575,8 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
         all_params = super().prepare_optimizer_params(text_encoder_lr, unet_lr, default_lr)
 
         if self.full_train_in_out:
-            if self.is_pixart or self.is_auraflow or self.is_flux:
+            base_model = self.base_model_ref() if self.base_model_ref is not None else None
+            if self.is_pixart or self.is_auraflow or self.is_flux or (base_model is not None and base_model.arch == "wan21"):
                 all_params.append({"lr": unet_lr, "params": list(self.transformer_pos_embed.parameters())})
                 all_params.append({"lr": unet_lr, "params": list(self.transformer_proj_out.parameters())})
             else:

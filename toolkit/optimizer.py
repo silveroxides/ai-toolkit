@@ -181,6 +181,7 @@ def get_optimizer(
         )
     elif lower_type == "adafactor":
         from toolkit.optimizers.adafactor import Adafactor
+<<<<<<< HEAD
 
         if "relative_step" not in optimizer_params:
             optimizer_params["relative_step"] = False
@@ -192,6 +193,16 @@ def get_optimizer(
             params, lr=float(learning_rate), eps=1e-6, **optimizer_params
         )
     elif lower_type == "automagic":
+=======
+        if 'relative_step' not in optimizer_params:
+            optimizer_params['relative_step'] = False
+        if 'scale_parameter' not in optimizer_params:
+            optimizer_params['scale_parameter'] = False
+        if 'warmup_init' not in optimizer_params:
+            optimizer_params['warmup_init'] = False
+        optimizer = Adafactor(params, lr=float(learning_rate), **optimizer_params)
+    elif lower_type == 'automagic':
+>>>>>>> main
         from toolkit.optimizers.automagic import Automagic
 
         optimizer = Automagic(params, lr=float(learning_rate), **optimizer_params)

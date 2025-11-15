@@ -13,8 +13,8 @@ from toolkit import image_utils
 from toolkit.basic import get_quick_signature_string
 from toolkit.dataloader_mixins import CaptionProcessingDTOMixin, ImageProcessingDTOMixin, LatentCachingFileItemDTOMixin, \
     ControlFileItemDTOMixin, ArgBreakMixin, PoiFileItemDTOMixin, MaskFileItemDTOMixin, AugmentationFileItemDTOMixin, \
-    UnconditionalFileItemDTOMixin, ClipImageFileItemDTOMixin, InpaintControlFileItemDTOMixin
-
+    UnconditionalFileItemDTOMixin, ClipImageFileItemDTOMixin, InpaintControlFileItemDTOMixin, TextEmbeddingFileItemDTOMixin
+from toolkit.prompt_utils import PromptEmbeds, concat_prompt_embeds
 
 if TYPE_CHECKING:
     from toolkit.config_modules import DatasetConfig
@@ -32,6 +32,7 @@ def print_once(msg):
 
 class FileItemDTO(
     LatentCachingFileItemDTOMixin,
+    TextEmbeddingFileItemDTOMixin,
     CaptionProcessingDTOMixin,
     ImageProcessingDTOMixin,
     ControlFileItemDTOMixin,
@@ -49,6 +50,7 @@ class FileItemDTO(
         self.is_video = self.dataset_config.num_frames > 1
         size_database = kwargs.get('size_database', {})
         dataset_root =  kwargs.get('dataset_root', None)
+        self.encode_control_in_text_embeddings = kwargs.get('encode_control_in_text_embeddings', False)
         if dataset_root is not None:
             # remove dataset root from path
             file_key = self.path.replace(dataset_root, '')
@@ -84,15 +86,18 @@ class FileItemDTO(
             video.release()
             size_database[file_key] = (width, height, file_signature)
         else:
-            # original method is significantly faster, but some images are read sideways. Not sure why. Do slow method for now.
-            # process width and height
-            # try:
-            #     w, h = image_utils.get_image_size(self.path)
-            # except image_utils.UnknownImageFormat:
-            #     print_once(f'Warning: Some images in the dataset cannot be fast read. ' + \
-            #                f'This process is faster for png, jpeg')
-            img = exif_transpose(Image.open(self.path))
-            w, h = img.size
+            if self.dataset_config.fast_image_size:
+            # original method is significantly faster, but some images are read sideways. Not sure why. Do slow method by default.
+                try:
+                    w, h = image_utils.get_image_size(self.path)
+                except image_utils.UnknownImageFormat:
+                    print_once(f'Warning: Some images in the dataset cannot be fast read. ' + \
+                            f'This process is faster for png, jpeg')
+                    img = exif_transpose(Image.open(self.path))
+                    w, h = img.size
+            else:
+                img = exif_transpose(Image.open(self.path))
+                w, h = img.size
             size_database[file_key] = (w, h, file_signature)
         self.width: int = w
         self.height: int = h
@@ -116,11 +121,13 @@ class FileItemDTO(
 
         self.network_weight: float = self.dataset_config.network_weight
         self.is_reg = self.dataset_config.is_reg
+        self.prior_reg = self.dataset_config.prior_reg
         self.tensor: Union[torch.Tensor, None] = None
 
     def cleanup(self):
         self.tensor = None
         self.cleanup_latent()
+        self.cleanup_text_embedding()
         self.cleanup_control()
         self.cleanup_inpaint()
         self.cleanup_clip_image()
@@ -133,9 +140,11 @@ class DataLoaderBatchDTO:
         try:
             self.file_items: List['FileItemDTO'] = kwargs.get('file_items', None)
             is_latents_cached = self.file_items[0].is_latent_cached
+            is_text_embedding_cached = self.file_items[0].is_text_embedding_cached
             self.tensor: Union[torch.Tensor, None] = None
             self.latents: Union[torch.Tensor, None] = None
             self.control_tensor: Union[torch.Tensor, None] = None
+            self.control_tensor_list: Union[List[List[torch.Tensor]], None] = None
             self.clip_image_tensor: Union[torch.Tensor, None] = None
             self.mask_tensor: Union[torch.Tensor, None] = None
             self.unaugmented_tensor: Union[torch.Tensor, None] = None
@@ -152,7 +161,7 @@ class DataLoaderBatchDTO:
             self.latents: Union[torch.Tensor, None] = None
             if is_latents_cached:
                 self.latents = torch.cat([x.get_latent().unsqueeze(0) for x in self.file_items])
-            self.control_tensor: Union[torch.Tensor, None] = None
+            self.prompt_embeds: Union[PromptEmbeds, None] = None
             # if self.file_items[0].control_tensor is not None:
             # if any have a control tensor, we concatenate them
             if any([x.control_tensor is not None for x in self.file_items]):
@@ -169,6 +178,16 @@ class DataLoaderBatchDTO:
                     else:
                         control_tensors.append(x.control_tensor)
                 self.control_tensor = torch.cat([x.unsqueeze(0) for x in control_tensors])
+            
+            # handle control tensor list
+            if any([x.control_tensor_list is not None for x in self.file_items]):
+                self.control_tensor_list = []
+                for x in self.file_items:
+                    if x.control_tensor_list is not None:
+                        self.control_tensor_list.append(x.control_tensor_list)
+                    else:
+                        raise Exception(f"Could not find control tensors for all file items, missing for {x.path}")
+                    
                 
             self.inpaint_tensor: Union[torch.Tensor, None] = None
             if any([x.inpaint_tensor is not None for x in self.file_items]):
@@ -265,6 +284,22 @@ class DataLoaderBatchDTO:
                         self.clip_image_embeds_unconditional.append(x.clip_image_embeds_unconditional)
                     else:
                         raise Exception("clip_image_embeds_unconditional is None for some file items")
+            
+            if any([x.prompt_embeds is not None for x in self.file_items]):
+                # find one to use as a base
+                base_prompt_embeds = None
+                for x in self.file_items:
+                    if x.prompt_embeds is not None:
+                        base_prompt_embeds = x.prompt_embeds
+                        break
+                prompt_embeds_list = []
+                for x in self.file_items:
+                    if x.prompt_embeds is None:
+                        prompt_embeds_list.append(base_prompt_embeds)
+                    else:
+                        prompt_embeds_list.append(x.prompt_embeds)
+                self.prompt_embeds = concat_prompt_embeds(prompt_embeds_list)
+                    
 
         except Exception as e:
             print(e)
@@ -298,3 +333,10 @@ class DataLoaderBatchDTO:
         del self.control_tensor
         for file_item in self.file_items:
             file_item.cleanup()
+    
+    @property
+    def dataset_config(self) -> 'DatasetConfig':
+        if len(self.file_items) > 0:
+            return self.file_items[0].dataset_config
+        else:
+            return None

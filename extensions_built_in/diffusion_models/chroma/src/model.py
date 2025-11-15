@@ -96,6 +96,7 @@ class Chroma(nn.Module):
         self.params = params
         self.in_channels = params.in_channels
         self.out_channels = self.in_channels
+        self.gradient_checkpointing = False
         if params.hidden_size % params.num_heads != 0:
             raise ValueError(
                 f"Hidden size {params.hidden_size} must be divisible by num_heads {params.num_heads}"
@@ -155,18 +156,27 @@ class Chroma(nn.Module):
         )
 
         # TODO: move this hardcoded value to config
-        self.mod_index_length = 344
+        # single layer has 3 modulation vectors
+        # double layer has 6 modulation vectors for each expert
+        # final layer has 2 modulation vectors
+        self.mod_index_length = 3 * params.depth_single_blocks + 2 * 6 * params.depth + 2
+        self.depth_single_blocks = params.depth_single_blocks
+        self.depth_double_blocks = params.depth
         # self.mod_index = torch.tensor(list(range(self.mod_index_length)), device=0)
         self.register_buffer(
             "mod_index",
             torch.tensor(list(range(self.mod_index_length)), device="cpu"),
             persistent=False,
         )
-
+        self.approximator_in_dim = params.approximator_in_dim
+    
     @property
     def device(self):
         # Get the device of the module (assumes all parameters are on the same device)
         return next(self.parameters()).device
+    
+    def enable_gradient_checkpointing(self, enable: bool = True):
+        self.gradient_checkpointing = enable
 
     def forward(
         self,
@@ -209,7 +219,7 @@ class Chroma(nn.Module):
             # then and only then we could concatenate it together
             input_vec = torch.cat([timestep_guidance, modulation_index], dim=-1)
             mod_vectors = self.distilled_guidance_layer(input_vec.requires_grad_(True))
-        mod_vectors_dict = distribute_modulations(mod_vectors)
+        mod_vectors_dict = distribute_modulations(mod_vectors, self.depth_single_blocks, self.depth_double_blocks)
 
         ids = torch.cat((txt_ids, img_ids), dim=1)
         pe = self.pe_embedder(ids)
@@ -246,8 +256,7 @@ class Chroma(nn.Module):
             txt_mod = mod_vectors_dict[f"double_blocks.{i}.txt_mod.lin"]
             double_mod = [img_mod, txt_mod]
 
-            # just in case in different GPU for simple pipeline parallel
-            if self.training:
+            if torch.is_grad_enabled() and self.gradient_checkpointing:
                 img.requires_grad_(True)
                 img, txt = ckpt.checkpoint(
                     block, img, txt, pe, double_mod, txt_img_mask
@@ -260,7 +269,7 @@ class Chroma(nn.Module):
         img = torch.cat((txt, img), 1)
         for i, block in enumerate(self.single_blocks):
             single_mod = mod_vectors_dict[f"single_blocks.{i}.modulation.lin"]
-            if self.training:
+            if torch.is_grad_enabled() and self.gradient_checkpointing:
                 img.requires_grad_(True)
                 img = ckpt.checkpoint(block, img, pe, single_mod, txt_img_mask)
             else:

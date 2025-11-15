@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { defaultJobConfig, defaultDatasetConfig } from './jobConfig';
+import { defaultJobConfig, defaultDatasetConfig, migrateJobConfig } from './jobConfig';
+import { jobTypeOptions } from './options';
 import { JobConfig } from '@/types';
 import { objectCopy } from '@/utils/basic';
 import { useNestedState } from '@/utils/hooks';
-import { SelectInput} from '@/components/formInputs';
+import { SelectInput } from '@/components/formInputs';
 import useSettings from '@/hooks/useSettings';
 import useGPUInfo from '@/hooks/useGPUInfo';
 import useDatasetList from '@/hooks/useDatasetList';
@@ -25,6 +26,7 @@ export default function TrainingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const runId = searchParams.get('id');
+  const cloneId = searchParams.get('cloneId');
   const [gpuIDs, setGpuIDs] = useState<string | null>(null);
   const { settings, isSettingsLoaded } = useSettings();
   const { gpuList, isGPUInfoLoaded } = useGPUInfo();
@@ -53,6 +55,23 @@ export default function TrainingForm() {
     }
   }, [datasets, settings, isSettingsLoaded, datasetFetchStatus]);
 
+  // clone existing job
+  useEffect(() => {
+    if (cloneId) {
+      apiClient
+        .get(`/api/jobs?id=${cloneId}`)
+        .then(res => res.data)
+        .then(data => {
+          console.log('Clone Training:', data);
+          setGpuIDs(data.gpu_ids);
+          const newJobConfig = migrateJobConfig(JSON.parse(data.job_config));
+          newJobConfig.config.name = `${newJobConfig.config.name}_copy`;
+          setJobConfig(newJobConfig);
+        })
+        .catch(error => console.error('Error fetching training:', error));
+    }
+  }, [cloneId]);
+
   useEffect(() => {
     if (runId) {
       apiClient
@@ -61,7 +80,7 @@ export default function TrainingForm() {
         .then(data => {
           console.log('Training:', data);
           setGpuIDs(data.gpu_ids);
-          setJobConfig(JSON.parse(data.job_config));
+          setJobConfig(migrateJobConfig(JSON.parse(data.job_config)));
         })
         .catch(error => console.error('Error fetching training:', error));
     }
@@ -144,6 +163,38 @@ export default function TrainingForm() {
             <div className="mx-4 bg-gray-200 dark:bg-gray-800 w-1 h-6"></div>
           </>
         )}
+        {!showAdvancedView && (
+          <>
+            <div>
+              <SelectInput
+                value={`${jobConfig?.config.process[0].type}`}
+                onChange={value => {
+                  // undo current job type changes
+                  const currentOption = jobTypeOptions.find(
+                    option => option.value === jobConfig?.config.process[0].type,
+                  );
+                  if (currentOption && currentOption.onDeactivate) {
+                    setJobConfig(currentOption.onDeactivate(objectCopy(jobConfig)));
+                  }
+                  const option = jobTypeOptions.find(option => option.value === value);
+                  if (option) {
+                    if (option.onActivate) {
+                      setJobConfig(option.onActivate(objectCopy(jobConfig)));
+                    }
+                    jobTypeOptions.forEach(opt => {
+                      if (opt.value !== option.value && opt.onDeactivate) {
+                        setJobConfig(opt.onDeactivate(objectCopy(jobConfig)));
+                      }
+                    });
+                  }
+                  setJobConfig(value, 'config.process[0].type');
+                }}
+                options={jobTypeOptions}
+              />
+            </div>
+            <div className="mx-4 bg-gray-200 dark:bg-gray-800 w-1 h-6"></div>
+          </>
+        )}
 
         <div className="pr-2">
           <Button
@@ -181,11 +232,13 @@ export default function TrainingForm() {
         </div>
       ) : (
         <MainContent>
-          <ErrorBoundary fallback={
-            <div className="flex items-center justify-center h-64 text-lg text-red-600 font-medium bg-red-100 dark:bg-red-900/20 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg">
-              Advanced job detected. Please switch to advanced view to continue.
-            </div>
-          }>
+          <ErrorBoundary
+            fallback={
+              <div className="flex items-center justify-center h-64 text-lg text-red-600 font-medium bg-red-100 dark:bg-red-900/20 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg">
+                Advanced job detected. Please switch to advanced view to continue.
+              </div>
+            }
+          >
             <SimpleJob
               jobConfig={jobConfig}
               setJobConfig={setJobConfig}

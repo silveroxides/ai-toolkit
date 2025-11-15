@@ -39,6 +39,16 @@ export interface GpuInfo {
   fan: GpuFan;
 }
 
+export interface CpuInfo {
+  name: string;
+  cores: number;
+  temperature: number;
+  totalMemory: number;
+  freeMemory: number;
+  availableMemory: number;
+  currentLoad: number;
+}
+
 export interface GPUApiResponse {
   hasNvidiaSmi: boolean;
   gpus: GpuInfo[];
@@ -53,11 +63,13 @@ export interface NetworkConfig {
   type: string;
   linear: number;
   linear_alpha: number;
+  conv: number;
+  conv_alpha: number;
   lokr_full_rank: boolean;
   lokr_factor: number;
   network_kwargs: {
     ignore_if_contains: string[];
-  }
+  };
 }
 
 export interface SaveConfig {
@@ -81,6 +93,15 @@ export interface DatasetConfig {
   cache_latents_to_disk?: boolean;
   resolution: number[];
   controls: string[];
+  control_path?: string | null;
+  num_frames: number;
+  shrink_video_to_frames: boolean;
+  do_i2v: boolean;
+  flip_x: boolean;
+  flip_y: boolean;
+  control_path_1?: string | null;
+  control_path_2?: string | null;
+  control_path_3?: string | null;
 }
 
 export interface EMAConfig {
@@ -104,12 +125,22 @@ export interface TrainConfig {
   ema_config?: EMAConfig;
   dtype: string;
   unload_text_encoder: boolean;
+  cache_text_embeddings: boolean;
   optimizer_params: {
     weight_decay: number;
   };
+  skip_first_sample: boolean;
+  force_first_sample: boolean;
+  disable_sampling: boolean;
   diff_output_preservation: boolean;
   diff_output_preservation_multiplier: number;
   diff_output_preservation_class: string;
+  blank_prompt_preservation?: boolean;
+  blank_prompt_preservation_multiplier?: number;
+  switch_boundary_every: number;
+  loss_type: 'mse' | 'mae' | 'wavelet' | 'stepped';
+  do_differential_guidance?: boolean;
+  differential_guidance_scale?: number;
 }
 
 export interface QuantizeKwargsConfig {
@@ -120,10 +151,33 @@ export interface ModelConfig {
   name_or_path: string;
   quantize: boolean;
   quantize_te: boolean;
+  qtype: string;
+  qtype_te: string;
   quantize_kwargs?: QuantizeKwargsConfig;
   arch: string;
   low_vram: boolean;
-  model_kwargs: {[key: string]: any};
+  model_kwargs: { [key: string]: any };
+  layer_offloading?: boolean;
+  layer_offloading_transformer_percent?: number;
+  layer_offloading_text_encoder_percent?: number;
+}
+
+export interface SampleItem {
+  prompt: string;
+  width?: number;
+  height?: number;
+  neg?: string;
+  seed?: number;
+  guidance_scale?: number;
+  sample_steps?: number;
+  fps?: number;
+  num_frames?: number;
+  ctrl_img?: string | null;
+  ctrl_idx?: number;
+  network_multiplier?: number;
+  ctrl_img_1?: string | null;
+  ctrl_img_2?: string | null;
+  ctrl_img_3?: string | null;
 }
 
 export interface SampleConfig {
@@ -131,7 +185,8 @@ export interface SampleConfig {
   sample_every: number;
   width: number;
   height: number;
-  prompts: string[];
+  prompts?: string[];
+  samples: SampleItem[];
   neg: string;
   seed: number;
   walk_seed: boolean;
@@ -141,14 +196,24 @@ export interface SampleConfig {
   fps: number;
 }
 
+export interface SliderConfig {
+  guidance_strength?: number;
+  anchor_strength?: number;
+  positive_prompt?: string;
+  negative_prompt?: string;
+  target_class?: string;
+  anchor_class?: string | null;
+}
+
 export interface ProcessConfig {
-  type: 'ui_trainer';
+  type: string;
   sqlite_db_path?: string;
   training_folder: string;
   performance_log_every: number;
   trigger_word: string | null;
   device: string;
   network?: NetworkConfig;
+  slider?: SliderConfig;
   save: SaveConfig;
   datasets: DatasetConfig[];
   train: TrainConfig;
@@ -171,3 +236,19 @@ export interface JobConfig {
   config: ConfigObject;
   meta: MetaConfig;
 }
+
+export interface ConfigDoc {
+  title: string | React.ReactNode;
+  description: React.ReactNode;
+}
+
+export interface SelectOption {
+  readonly value: string;
+  readonly label: string;
+}
+export interface GroupedSelectOption {
+  readonly label: string;
+  readonly options: SelectOption[];
+}
+
+export type JobStatus = 'queued' | 'running' | 'stopping' | 'stopped' | 'completed' | 'error';
