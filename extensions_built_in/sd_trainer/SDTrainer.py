@@ -2395,6 +2395,7 @@ class SDTrainer(BaseSDTrainProcess):
                             noisy_latents=noisy_latents.to(self.device_torch, dtype=dtype),
                             timesteps=timesteps,
                             conditional_embeds=dop_embeds.to(self.device_torch, dtype=dtype),
+                        )
 
                         with torch.no_grad():
                             if self.train_config.diff_output_preservation:

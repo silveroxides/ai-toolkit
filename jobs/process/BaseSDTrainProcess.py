@@ -2495,14 +2495,8 @@ class BaseSDTrainProcess(BaseTrainProcess):
                 # if is even step and we have a reg dataset, use that
                 # todo improve this logic to send one of each through if we can buckets and batch size might be an issue
                 is_reg_step = False
-                is_save_step = (
-                    self.save_config.save_every
-                    and self.step_num % self.save_config.save_every == 0
-                )
-                is_sample_step = (
-                    self.sample_config.sample_every
-                    and self.step_num % self.sample_config.sample_every == 0
-                )
+                is_save_step = self.save_config.save_every and self.step_num % self.save_config.save_every == 0
+                is_sample_step = self.sample_config.sample_every and self.step_num % self.sample_config.sample_every == 0
                 if self.train_config.disable_sampling:
                     is_sample_step = False
 
@@ -2512,12 +2506,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
                     # keep track to alternate on an accumulation step for reg
                     batch_step = step
                     # don't do a reg step on sample or save steps as we dont want to normalize on those
-                    if (
-                        batch_step % 2 == 0
-                        and dataloader_reg is not None
-                        and not is_save_step
-                        and not is_sample_step
-                    ):
+                    if batch_step % 2 == 0 and dataloader_reg is not None and not is_save_step and not is_sample_step:
                         try:
                             with self.timer("get_batch:reg"):
                                 batch = next(dataloader_iterator_reg)
@@ -2582,23 +2571,6 @@ class BaseSDTrainProcess(BaseTrainProcess):
             try:
                 with self.accelerator.accumulate(self.modules_being_trained):
                     loss_dict = self.hook_train_loop(batch_list)
-                except Exception as e:
-                    traceback.print_exc()
-                    # print batch info
-                    print("Batch Items:")
-                    for batch in batch_list:
-                        for item in batch.file_items:
-                            print(f" - {item.path}")
-                    raise e
-
-                # Even more Shi
-                if not self.is_grad_accumulation_step:
-                    self.optimizer.step()
-                    self.optimizer.zero_grad(set_to_none=True)
-                    self._apply_double_block_lr_ramp(self.step_num)
-
-            self.timer.stop("train_loop")
-            # TODO: Check for refactor.
             except torch.cuda.OutOfMemoryError:
                 did_oom = True
             except RuntimeError as e:
@@ -2628,7 +2600,6 @@ class BaseSDTrainProcess(BaseTrainProcess):
                 print("\n==== Profile Results ====")
                 print(self.torch_profiler.key_averages().table(sort_by="cpu_time_total", row_limit=1000))
             self.timer.stop('train_loop')
-            # TODO: End check for refactor.
             if not did_first_flush:
                 flush()
                 did_first_flush = True

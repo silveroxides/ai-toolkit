@@ -47,6 +47,20 @@ def get_optimizer(
         # you can choose weight decay value based on your problem, 0 by default
         optimizer = Prodigy8bit(params, lr=use_lr, eps=1e-6, **optimizer_params)
 
+    elif lower_type.startswith("prodigysf"):
+        from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
+
+        print("Using ProdigyPlusScheduleFree optimizer")
+        use_lr = learning_rate
+        if use_lr < 0.1:
+            # dadaptation uses different lr that is values of 0.1 to 1.0. default to 1.0
+            use_lr = 1.0
+
+        print(f"Using lr {use_lr}")
+        # let net be the neural network you want to train
+        # you can choose weight decay value based on your problem, 0 by default
+        optimizer = ProdigyPlusScheduleFree(params, lr=use_lr, eps=1e-6, **optimizer_params)
+
     elif lower_type.startswith("prodigy"):
         from prodigyopt import Prodigy
 
